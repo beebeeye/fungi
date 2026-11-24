@@ -174,7 +174,7 @@
         box-shadow: var(--shadow); overflow: hidden;
         display: grid; grid-template-columns: 300px 1fr;
       }
-      .jcard .photo { position: relative; min-height: 100%; background: var(--green-mist); }
+      .jcard .photo { position: relative; aspect-ratio: 3 / 4; align-self: start; background: var(--green-mist); }
       .jcard .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
       .jcard .body { padding: 24px 26px 22px; }
       .date-tag {
@@ -790,7 +790,7 @@
         .quiz-body { padding: 22px 20px 24px; }
         .facts-grid { grid-template-columns: 1fr; }
         .jcard { grid-template-columns: 1fr; }
-        .jcard .photo { min-height: 230px; }
+        .jcard .photo { min-height: 230px; aspect-ratio: auto; align-self: stretch; }
         .map-layout { grid-template-columns: 1fr; }
         #map { height: 400px; }
         .about-card { grid-template-columns: 1fr; justify-items: center; text-align: left; }
@@ -1302,13 +1302,14 @@
 
     <!-- Photo cropper: opened from the Crop button on a photo in the
          diary form. The crop box starts locked to the journal card
-         cover shape (4:3); Free lets it be any shape. -->
+         cover shape — the site display ratio, 3:4 (the cover column's
+         aspect-ratio in the stylesheet); Free lets it be any shape. -->
     <div class="crop-overlay" id="crop-overlay" hidden>
       <div class="crop-card" role="dialog" aria-modal="true" aria-labelledby="crop-title">
         <h2 id="crop-title">Crop this photo</h2>
         <p class="crop-help">Drag the box to move it, and drag a green corner dot to make it bigger or smaller. Only the part inside the box is kept.</p>
         <div class="crop-ratio-row" role="group" aria-label="Crop shape">
-          <button type="button" class="crop-ratio-btn" id="crop-ratio-locked" aria-pressed="true">Card cover (4:3)</button>
+          <button type="button" class="crop-ratio-btn" id="crop-ratio-locked" aria-pressed="true">Site display (3:4)</button>
           <button type="button" class="crop-ratio-btn" id="crop-ratio-free" aria-pressed="false">Free</button>
         </div>
         <p class="crop-loading" id="crop-loading">Loading this photo…</p>
@@ -2989,8 +2990,10 @@
              The Crop button on each preview opens a modal with the
              photo big, a draggable crop box and corner handles that
              resize it (Pointer Events, so fingers work too). The box
-             starts locked to 4:3 — the shape the journal card cover
-             shows — and a Free option unlocks the shape. Apply draws
+             starts locked to the site display ratio, 3:4 — the
+             aspect-ratio the journal card cover is shown at (see
+             .jcard .photo in the stylesheet) — and a Free option
+             unlocks the shape. Apply draws
              the chosen area to a canvas at full resolution and swaps
              the list item for the cropped file, so cropping happens
              before the normal shrink-and-upload step on save and the
@@ -3000,7 +3003,9 @@
              a { file } item and uploads as a new photo on save, with
              the entry's photo list updated to the new URL. Cancel
              changes nothing. */
-          var COVER_RATIO = 4 / 3;
+          /* The card cover's display ratio, kept in step with
+             aspect-ratio on .jcard .photo in the stylesheet. */
+          var SITE_DISPLAY_RATIO = 3 / 4;
           var cropOverlayEl = document.getElementById("crop-overlay");
           var cropStageEl = document.getElementById("crop-stage");
           var cropImgEl = document.getElementById("crop-img");
@@ -3029,9 +3034,9 @@
                  its centre and as much of its size as fits. */
               var sw = cropStageEl.clientWidth, sh = cropStageEl.clientHeight;
               var cx = cropBox.x + cropBox.w / 2, cy = cropBox.y + cropBox.h / 2;
-              var w = cropBox.w, h = w / COVER_RATIO;
-              if (h > sh) { h = sh; w = h * COVER_RATIO; }
-              if (w > sw) { w = sw; h = w / COVER_RATIO; }
+              var w = cropBox.w, h = w / SITE_DISPLAY_RATIO;
+              if (h > sh) { h = sh; w = h * SITE_DISPLAY_RATIO; }
+              if (w > sw) { w = sw; h = w / SITE_DISPLAY_RATIO; }
               cropBox.w = w; cropBox.h = h;
               cropBox.x = Math.min(Math.max(cx - w / 2, 0), sw - w);
               cropBox.y = Math.min(Math.max(cy - h / 2, 0), sh - h);
@@ -3101,10 +3106,10 @@
               var dh = Math.max(1, Math.round(img.naturalHeight * scale));
               cropStageEl.style.width = dw + "px";
               cropStageEl.style.height = dh + "px";
-              /* Start with the biggest centred 4:3 box that covers
+              /* Start with the biggest centred site-display (3:4) box that covers
                  most of the photo. */
-              var w = dw * 0.92, h = w / COVER_RATIO;
-              if (h > dh * 0.92) { h = dh * 0.92; w = h * COVER_RATIO; }
+              var w = dw * 0.92, h = w / SITE_DISPLAY_RATIO;
+              if (h > dh * 0.92) { h = dh * 0.92; w = h * SITE_DISPLAY_RATIO; }
               cropBox = { x: (dw - w) / 2, y: (dh - h) / 2, w: w, h: h };
               if (cropLoadingEl) cropLoadingEl.hidden = true;
               cropStageEl.hidden = false;
@@ -3153,11 +3158,11 @@
                 var py = Math.min(Math.max((north ? b.y : b.y + b.h) + dy, 0), sh);
                 var w = Math.abs(px - ax), h = Math.abs(py - ay);
                 if (cropLocked) {
-                  h = w / COVER_RATIO;
+                  h = w / SITE_DISPLAY_RATIO;
                   var maxH = north ? ay : sh - ay;
-                  if (h > maxH) { h = maxH; w = h * COVER_RATIO; }
-                  if (w < min) { w = min; h = w / COVER_RATIO; }
-                  if (h < min) { h = min; w = h * COVER_RATIO; }
+                  if (h > maxH) { h = maxH; w = h * SITE_DISPLAY_RATIO; }
+                  if (w < min) { w = min; h = w / SITE_DISPLAY_RATIO; }
+                  if (h < min) { h = min; w = h * SITE_DISPLAY_RATIO; }
                 } else {
                   if (w < min) w = min;
                   if (h < min) h = min;
