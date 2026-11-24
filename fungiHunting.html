@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <link rel="icon" href="data:," />
-<title>森林采蘑菇</title>
+<title>Forest Mushroom Hunting</title>
 <style>
   :root{
     --paper:#f8f3e4; --paper2:#fffdf4; --ink:#33322c; --ink-soft:#6b675a;
@@ -42,12 +42,20 @@
     box-shadow:var(--shadow); padding:8px 12px; display:flex; align-items:center; gap:10px; min-height:52px;
   }
   .hud-box .label{ font-size:13px; color:var(--ink-soft); white-space:nowrap; }
-  .pack-slots{ display:flex; gap:3px; flex-wrap:wrap; max-width:300px; }
-  .slot{
-    width:20px; height:20px; border:2px solid var(--line); border-radius:7px 9px 8px 10px;
-    display:flex; align-items:center; justify-content:center; font-size:13px; background:var(--paper);
+  .pack-box{ flex:1 1 340px; min-width:min(100%,280px); }
+  .pack-bar{
+    position:relative; flex:1; min-width:110px; height:24px; border:2px solid var(--line);
+    border-radius:999px; background:var(--paper); overflow:hidden;
   }
-  .slot.full{ background:#ffe9c9; }
+  .pack-fill{
+    height:100%; width:0%; background:#5d9b6a;
+    background-image:repeating-linear-gradient(-45deg, rgba(255,255,255,.18) 0 8px, transparent 8px 16px);
+    transition:width .35s ease;
+  }
+  .pack-bar-text{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; line-height:1; pointer-events:none;
+  }
   .pack-num{ font-size:20px; font-weight:700; white-space:nowrap; }
   .wx-now{ font-size:19px; font-weight:700; white-space:nowrap; }
   .wx-next{ font-size:13px; color:var(--ink-soft); white-space:nowrap; }
@@ -62,12 +70,12 @@
   .icon-btn:active{ transform:translate(1px,2px); box-shadow:1px 1px 0 rgba(0,0,0,.6); }
   /* world strip */
   .strip{
-    position:relative; height:26px; background:var(--card); border:2.5px solid var(--line);
+    position:relative; height:34px; background:var(--card); border:2.5px solid var(--line);
     border-radius:12px; margin-bottom:10px; overflow:hidden;
   }
-  .strip .mark{ position:absolute; top:50%; transform:translate(-50%,-50%); font-size:14px; line-height:1; }
+  .strip .mark{ position:absolute; top:66%; transform:translate(-50%,-50%); font-size:14px; line-height:1; }
   .strip .dot{
-    position:absolute; top:50%; width:13px; height:13px; border-radius:50%;
+    position:absolute; top:66%; width:13px; height:13px; border-radius:50%;
     border:2px solid var(--line); transform:translate(-50%,-50%); background:var(--red); z-index:2;
   }
   .strip .lbl{ position:absolute; top:2px; transform:translateX(-50%); font-size:10px; color:var(--ink-soft); }
@@ -141,7 +149,8 @@
     .ctl{ width:52px; height:52px; font-size:21px; }
     .ctl.pick{ width:62px; height:62px; }
     .ctl-group{ gap:8px; } .ctl-col{ gap:8px; }
-    .pack-slots{ max-width:170px; }
+    .pack-box{ min-width:0; }
+    .pack-bar{ min-width:80px; }
     .char-card{ width:104px; padding:8px 6px 8px; }
     .char-card svg{ width:54px; height:78px; }
     .char-card .nm{ font-size:16px; }
@@ -175,39 +184,46 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🍄 森林采蘑菇</h1>
-  <p class="sub">一家三口进森林啦！走遍林子、爬上大树，把蘑菇采满背包（12 个）就赢了。下雨天蘑菇冒得更多；打雷时快躲进巨型蘑菇屋，不然闪电会烧毁蘑菇、清空背包！</p>
+  <h1>🍄 Forest Mushroom Hunting</h1>
+  <p class="sub">The whole family is heading into the forest! This forest <b>never ends</b> — keep walking left or right and the woods go on forever, with mushroom houses and volcanoes appearing along the way. Climb the big trees and fill your backpack with mushrooms (100) to win. <b>Regular mushrooms go straight into your backpack when you touch them</b>; the forest also has chubby <b>bolete</b> — after you touch one, <b>click once to stomp it</b>, and it will spray brownish-yellow spores! More mushrooms pop up on rainy days; when thunder rolls, hurry into a giant mushroom house, or lightning will burn the mushrooms and empty your backpack! The forest also has the red-capped, white-spotted <b>fly agaric</b> — touch it and you will <b>hallucinate</b>: you’ll walk upside down, every control is reversed, and you’ll see things that aren’t there!</p>
 
   <div class="hud">
-    <div class="hud-box">
-      <span class="label">🎒 背包</span>
-      <div class="pack-slots" id="packSlots"></div>
-      <span class="pack-num"><span id="packNum">0</span>/12</span>
+    <div class="hud-box pack-box">
+      <span class="label">🎒 Your backpack</span>
+      <div class="pack-bar" id="packBar" role="progressbar" aria-label="Mushroom collection progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="pack-fill" id="packFill"></div>
+        <span class="pack-bar-text" id="packBarText">0%</span>
+      </div>
+      <span class="pack-num">🍄 <span id="packNum">0</span>/100</span>
     </div>
     <div class="hud-box">
-      <span class="label">天气</span>
-      <span class="wx-now" id="wxNow">☀️ 晴天</span>
+      <span class="label">Weather</span>
+      <span class="wx-now" id="wxNow">☀️ Sunny</span>
       <span class="wx-next" id="wxNext"></span>
-      <span class="safe-badge" id="safeBadge">🏠 屋内安全</span>
+      <span class="safe-badge" id="safeBadge">🏠 Safe indoors</span>
+      <span class="safe-badge" id="halluBadge" style="color:#c0392b;">🌀 Hallucinating</span>
     </div>
     <div class="hud-spacer"></div>
     <div class="hud-box">
-      <span class="label">用时</span><span class="pack-num" id="clock">0:00</span>
+      <span class="label">Time</span><span class="pack-num" id="clock">0:00</span>
     </div>
-    <button class="icon-btn" id="soundBtn" type="button">🔊 声音开</button>
-    <button class="icon-btn" id="restartBtn" type="button">↺ 重新开始</button>
+    <button class="icon-btn" id="pauseBtn" type="button">⏸ Pause</button>
+    <button class="icon-btn" id="soundBtn" type="button">🔊 Sound on</button>
+    <button class="icon-btn" id="restartBtn" type="button">↺ Restart</button>
   </div>
 
   <div class="strip" aria-hidden="true">
-    <span class="mark" style="left:4%">🌲</span>
-    <span class="mark" style="left:68%">🍄</span><span class="lbl" style="left:59%">蘑菇屋</span>
-    <span class="mark" style="left:94%">🌋</span><span class="lbl" style="left:86%">火山</span>
-    <span class="dot" id="stripDot" style="left:6%"></span>
+    <span class="mark" style="left:3%">🌲</span>
+    <span class="mark" style="left:97%">🌲</span>
+    <span class="mark" id="stripHouse" style="left:68%">🍄</span><span class="lbl" id="stripHouseLbl" style="left:68%">Mushroom house</span>
+    <span class="mark" id="stripVolc" style="left:94%">🌋</span><span class="lbl" id="stripVolcLbl" style="left:94%">Volcano</span>
+    <span class="lbl" style="left:50%">You</span>
+    <span class="dot" id="stripDot" style="left:50%"></span>
   </div>
 
     <div class="overlay panel" id="startOverlay">
-      <h2>选一个角色出发！</h2>
-      <p>另外两位家人会变成 AI 伙伴，在林子里帮你一起找蘑菇。<br>采满 12 个蘑菇装进背包，就胜利啦。</p>
+      <h2>Pick a character and set off!</h2>
+      <p>The other two family members become AI partners, who help you hunt for mushrooms in the forest.<br>Everyone has their own backpack — fill <b>your own backpack</b> with 100 mushrooms to win.<br>This forest never ends — you can walk either way forever.<br>Watch out for the red-capped, white-spotted <b>fly agaric</b>: touch it and you’ll hallucinate — walking upside down with every control reversed!</p>
       <div class="char-row">
         <button class="char-card sel" type="button" data-char="dad">
           <svg width="72" height="104" viewBox="0 0 72 104" aria-hidden="true">
@@ -219,8 +235,8 @@
             <rect x="24" y="34" width="24" height="26" rx="6" fill="#4a7fb5" stroke="#33322c" stroke-width="3"/>
             <path d="M50 44 l12 5 -3 16 -11 -4 z" fill="#e3a008" stroke="#33322c" stroke-width="3"/>
           </svg>
-          <div class="nm">👨 爸爸</div>
-          <div class="ds">个子最高，背着大背包<br>专属特性 · 后续拓展</div>
+          <div class="nm">👨 Dad</div>
+          <div class="ds">The tallest, with a big backpack<br>Special trait · coming later</div>
         </button>
         <button class="char-card" type="button" data-char="mom">
           <svg width="72" height="104" viewBox="0 0 72 104" aria-hidden="true">
@@ -233,8 +249,8 @@
             <path d="M30 78 L26 98 M42 78 L46 98" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
             <path d="M50 42 l12 5 -3 16 -11 -4 z" fill="#e3a008" stroke="#33322c" stroke-width="3"/>
           </svg>
-          <div class="nm">👩 妈妈</div>
-          <div class="ds">眼睛最尖，找蘑菇高手<br>专属特性 · 后续拓展</div>
+          <div class="nm">👩 Mom</div>
+          <div class="ds">Sharpest eyes, a mushroom-finding pro<br>Special trait · coming later</div>
         </button>
         <button class="char-card" type="button" data-char="kid">
           <svg width="72" height="104" viewBox="0 0 72 104" aria-hidden="true">
@@ -249,12 +265,12 @@
             <path d="M36 62 L28 94 M36 62 L44 94" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
             <path d="M50 46 l11 4 -2.5 14 -10 -3.5 z" fill="#e3a008" stroke="#33322c" stroke-width="3"/>
           </svg>
-          <div class="nm">🧒 孩子</div>
-          <div class="ds">个子小小，钻来钻去<br>专属特性 · 后续拓展</div>
+          <div class="nm">🧒 Kid</div>
+          <div class="ds">Small and quick, darts all over<br>Special trait · coming later</div>
         </button>
       </div>
-      <button class="big-btn" id="startBtn" type="button">进森林！</button>
-      <p style="margin-top:12px;font-size:13px;">键盘：<kbd>←</kbd><kbd>→</kbd> 或 <kbd>A</kbd><kbd>D</kbd> 移动 · <kbd>空格</kbd> 跳 · 靠近树按 <kbd>W</kbd>/<kbd>S</kbd> 爬树 · <kbd>E</kbd> 拾取<br>手机/平板：用下方的大按钮也可以玩。</p>
+      <button class="big-btn" id="startBtn" type="button">Into the forest!</button>
+      <p style="margin-top:12px;font-size:13px;">Keyboard: <kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> to move · <kbd>Space</kbd> to jump · near a tree, press <kbd>W</kbd>/<kbd>S</kbd> to climb<br>Touch a regular mushroom to collect it automatically; after touching a bolete, <b>click once</b> (or tap the screen) to stomp it and watch it spray spores!<br>On phones/tablets, you can also play with the big buttons below.<br>Need a break? Tap the "⏸ Pause" at the top right (or press <kbd>P</kbd>) and the game will wait for you.</p>
     </div>
 
 
@@ -262,71 +278,82 @@
     <canvas id="game" width="960" height="600"></canvas>
     <div class="toast" id="toast"></div>
 
+    <div class="overlay hidden" id="pauseOverlay">
+      <h2>⏸ Take a break</h2>
+      <p>The game is paused — the mushrooms, weather and lightning are all waiting right where you left them, and you won’t lose a single mushroom from your backpack.</p>
+      <button class="big-btn green" id="resumeBtn" type="button">Keep playing</button>
+      <p style="margin-top:12px;font-size:13px;">Pressing  <kbd>P</kbd>  also resumes the game.</p>
+    </div>
+
     <div class="overlay hidden" id="winOverlay">
-      <h2>🎉 背包装满啦，你赢了！</h2>
+      <h2>🎉 Backpack full — you win!</h2>
       <div class="win-stats" id="winStats"></div>
-      <button class="big-btn green" id="againBtn" type="button">再玩一次</button>
+      <button class="big-btn green" id="againBtn" type="button">Play again</button>
     </div>
   </div>
 
-  <div class="controls" aria-label="触屏控制">
+  <div class="controls" aria-label="Touch controls">
     <div class="ctl-group">
-      <button class="ctl" id="btnLeft" type="button" aria-label="向左">◀</button>
-      <button class="ctl" id="btnRight" type="button" aria-label="向右">▶</button>
+      <button class="ctl" id="btnLeft" type="button" aria-label="Left">◀</button>
+      <button class="ctl" id="btnRight" type="button" aria-label="Right">▶</button>
     </div>
     <div class="ctl-group">
       <div class="ctl-col">
-        <button class="ctl climb" id="btnUp" type="button" aria-label="爬上树">🌳▲</button>
-        <button class="ctl climb" id="btnDown" type="button" aria-label="爬下树">▼</button>
+        <button class="ctl climb" id="btnUp" type="button" aria-label="Climb up">🌳▲</button>
+        <button class="ctl climb" id="btnDown" type="button" aria-label="Climb down">▼</button>
       </div>
-      <button class="ctl" id="btnJump" type="button" aria-label="跳跃">⬆<small></small></button>
-      <button class="ctl pick" id="btnPick" type="button" aria-label="拾取蘑菇">🍄<span>拾取</span></button>
+      <button class="ctl" id="btnJump" type="button" aria-label="Jump">⬆<small></small></button>
+      <button class="ctl pick" id="btnPick" type="button" aria-label="Stomp the bolete">🦶<span>Stomp</span></button>
     </div>
   </div>
 
   <div class="cols">
     <div class="card">
-      <h3>🎮 怎么玩</h3>
+      <h3>🎮 How to play</h3>
       <ul>
-        <li>在森林里走动、跳跃、爬树，寻找冒出来的蘑菇。</li>
-        <li>发现蘑菇时，角色会开心地<b>捂脸惊呼</b>——走近按 <kbd>E</kbd> 或点「拾取」，蘑菇就自动收进背包。</li>
-        <li>背包一共 12 格，<b>装满就胜利</b>。</li>
-        <li>另外两位家人是 AI 伙伴：他们会自己找蘑菇、捂脸惊呼，再把蘑菇送进你的背包，还会喊你「这里有蘑菇！」</li>
-        <li>森林右边有一间<b>巨型蘑菇屋</b>，走进去就能躲雷；远处还有一座火山。</li>
+        <li>Walk, jump and climb trees around the forest, looking for mushrooms that pop up.</li>
+        <li>When a character spots a mushroom, they happily <b>cover their face and gasp</b> — no button needed: <b>just walk into the mushroom and it goes straight into the backpack</b>.</li>
+        <li>The forest also has <b>bolete</b>: thick stems and brown caps, and they never go in a backpack. After you touch one, <b>click once (or tap the screen, or tap "Stomp")</b> and your character stomps it — the bolete instantly <b>sprays out brownish-yellow spores</b>, then shrivels up once it's done spraying.</li>
+        <li>The forest also has <b>fly agaric</b>: a red cap with white spots — the prettiest mushroom of all, and the most dangerous! <b>touching it causes a hallucination (about 15 s)</b>: your whole body <b>walks upside down</b>, the controls <b>are all reversed</b> (press Left and you go right, press Up and you go down, try to jump and you squat instead), and you’ll see <b>things that aren’t there</b> — blinding flashes, a huge colorful downpour, giant mushrooms floating in the sky, and the whole world wobbling around. Don't panic — once the hallucination passes, everything goes back to normal. Your AI partners are smart — they never touch it.</li>
+        <li>The collection bar holds  <b>100  mushrooms</b> in total. Every mushroom you pick fills it a little more, and <b>filling it to  100  means victory</b>.</li>
+        <li>The other two family members are AI partners: they find mushrooms on their own, cover their faces and gasp, and call out "There’s a mushroom here!" to you. <b>Everyone has their own backpack</b>: what a partner picks goes into their own backpack (the 🎒 number on their name tag is their count), and <b>only mushrooms you pick yourself go into your backpack and fill the collection bar</b>.</li>
+        <li>The forest <b>has no edges</b>: keep walking left or right and <b>giant mushroom houses</b> and volcanoes keep appearing one after another — during thunder, step into the nearest mushroom house to shelter from lightning. The strip at the top of the screen shows which way the nearest mushroom house and volcano are.</li>
+        <li>The game is full of <b>sounds</b>: footsteps pattering, landing thuds, rain rustling, birdsong on fine days, the little "pop" of a mushroom sprouting... Listen closely — <b>before lightning strikes, you’ll first hear a low rumble</b> — when you hear it, run for a mushroom house! The "Sound" button at the top right turns all sound effects on or off.</li>
+        <li>Need a break? Tap <b>"⏸ Pause"</b>(or press <kbd>P</kbd> ): the game stops at once — mushrooms, weather and lightning all freeze, and your backpack is safe; it also <b>pauses automatically</b>. Tap "Keep playing" to carry on.</li>
       </ul>
     </div>
     <div class="card">
-      <h3>🌦️ 天气小抄</h3>
+      <h3>🌦️ Weather cheat sheet</h3>
       <ul class="wx-list">
-        <li><span class="tag">☀️ 晴天</span><span>蘑菇慢慢长，安心采。</span></li>
-        <li><span class="tag">⛅ 多云</span><span>暂无特殊效果（MVP）。</span></li>
-        <li><span class="tag">☁️ 阴天</span><span>暂无特殊效果（MVP）。</span></li>
-        <li><span class="tag">🌦️ 小雨</span><span class="hot">蘑菇变多，长得更快！</span></li>
-        <li><span class="tag">🌧️ 暴雨</span><span class="hot">蘑菇冒得更多，抓紧采！</span></li>
-        <li><span class="tag">🌋 火雨</span><span>火山喷出火星雨，暂无特殊效果（MVP）。</span></li>
-        <li><span class="tag">⛈️ 雷电</span><span class="hot">闪电会烧毁地上的蘑菇，还会清空背包！听到雷声快进蘑菇屋躲好。</span></li>
+        <li><span class="tag">☀️ Sunny</span><span>Mushrooms grow slowly — pick at your leisure.</span></li>
+        <li><span class="tag">⛅ Cloudy</span><span>No special effect yet (MVP).</span></li>
+        <li><span class="tag">☁️ Overcast</span><span>No special effect yet (MVP).</span></li>
+        <li><span class="tag">🌦️ Light rain</span><span class="hot">More mushrooms, and they grow faster!</span></li>
+        <li><span class="tag">🌧️ Downpour</span><span class="hot">Even more mushrooms pop up — grab them fast!</span></li>
+        <li><span class="tag">🌋 Fire rain</span><span>The volcano rains sparks. No special effect yet (MVP).</span></li>
+        <li><span class="tag">⛈️ Thunderstorm</span><span class="hot">Lightning burns mushrooms on the ground and empties backpacks! When you hear thunder, get into a mushroom house.</span></li>
       </ul>
-      <p>天气会自己轮换，屏幕上方能看到现在和下一个天气。</p>
+      <p>The weather changes on its own — the top of the screen shows the current weather and what's next.</p>
     </div>
   </div>
 
-  <footer>森林采蘑菇 · MVP 版 — 爸爸、妈妈、孩子的专属特性将在后续版本拓展。</footer>
+  <footer>Forest Mushroom Hunting · MVP version — Dad, Mom and Kid's special traits will be expanded in later versions.</footer>
 </div>
 
 <script>
 (function(){
 "use strict";
-/* ================= 基础 ================= */
+/* ================= Basics ================= */
 var canvas = document.getElementById('game');
 var ctx = canvas.getContext('2d');
 var VIEW_W = 960, VIEW_H = 600;
-var WORLD_W = 2600, GROUND = 492;
-var CAPACITY = 12;
+var PERIOD = 2600, GROUND = 492;   /* Infinite world: every 2600px is one segment; scenery is generated segment by segment with no left or right edge */
+var CAPACITY = 100;
 
 function fitCanvas(){
   var dpr = Math.min(window.devicePixelRatio || 1, 2);
   var cw = canvas.clientWidth || 960;
-  VIEW_W = cw < 560 ? 600 : 960;   /* 手机上放大视野，角色更大更好点 */
+  VIEW_W = cw < 560 ? 600 : 960;   /* On phones, widen the view so characters are bigger and easier to tap */
   canvas.width = VIEW_W * dpr; canvas.height = VIEW_H * dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
@@ -334,10 +361,10 @@ fitCanvas();
 window.addEventListener('resize', fitCanvas);
 window.addEventListener('load', fitCanvas);
 
-/* 确定性伪随机（涂鸦抖动用） */
+/* Deterministic pseudo-random (for doodle jitter) */
 function rnd(seed){ var x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 
-/* 涂鸦线条：带轻微手抖的分段线 */
+/* Doodle line: a segmented line with a slight hand wobble */
 function doodleLine(x1,y1,x2,y2,seed,w){
   ctx.lineWidth = w || 2.5;
   ctx.beginPath();
@@ -374,52 +401,65 @@ function cloudPath(cx,cy,s,seed){
   ctx.closePath();
 }
 
-/* ================= 角色定义 ================= */
+/* ================= Character definitions ================= */
 var CHARS = {
-  dad:{ key:'dad', name:'爸爸', h:96, shirt:'#4a7fb5', skin:'#ffe3c2', hair:'#3a3a36', style:'cap' },
-  mom:{ key:'mom', name:'妈妈', h:88, shirt:'#d9534a', skin:'#ffe3c2', hair:'#8a5a3b', style:'dress' },
-  kid:{ key:'kid', name:'孩子', h:64, shirt:'#e8862e', skin:'#ffe3c2', hair:'#222222', style:'kid' }
+  dad:{ key:'dad', name:'Dad', h:96, shirt:'#4a7fb5', skin:'#ffe3c2', hair:'#3a3a36', style:'cap' },
+  mom:{ key:'mom', name:'Mom', h:88, shirt:'#d9534a', skin:'#ffe3c2', hair:'#8a5a3b', style:'dress' },
+  kid:{ key:'kid', name:'Kid', h:64, shirt:'#e8862e', skin:'#ffe3c2', hair:'#222222', style:'kid' }
 };
 var selectedChar = 'dad';
 var playerKey = 'dad';
 
-/* ================= 世界静态物 ================= */
-var trees = [];
-(function(){
-  var xs = [180, 430, 700, 980, 1240, 1520, 2050, 2300];
-  for(var i=0;i<xs.length;i++){
-    trees.push({ x:xs[i], h:230 + rnd(i*13)*70, seed:i*7+3, branchY: GROUND - 128 - rnd(i*29)*26 });
+/* ================= Static world objects ================= */
+var TREE_OFFSETS = [180, 430, 700, 980, 1240, 1520, 2050, 2300];
+var HOUSE_OFFSET = 1745, VOLCANO_OFFSET = 2470;
+var HOUSE = { w: 230, capY: GROUND - 196 };   /* Giant mushroom house size; position is computed per segment:houseCenterNear() */
+function houseCenterNear(x){ return HOUSE_OFFSET + Math.round((x - HOUSE_OFFSET) / PERIOD) * PERIOD; }
+function volcanoCenterNear(x){ return VOLCANO_OFFSET + Math.round((x - VOLCANO_OFFSET) / PERIOD) * PERIOD; }
+var trees = [], grassTufts = [], flowers = [], stones = [];
+var worldWinMin = null, worldWinMax = null;
+/* Generate the trees around the player on demand/grass/flowers/stones: generated wherever you walk, extending infinitely in both directions */
+function buildWorldWindow(cx){
+  var min = cx - 1800, max = cx + 1800;
+  if(worldWinMin !== null && min >= worldWinMin && max <= worldWinMax) return;
+  worldWinMin = min - 700; worldWinMax = max + 700;
+  var lo = worldWinMin, hi = worldWinMax, k, i, gx;
+  trees = []; grassTufts = []; flowers = []; stones = [];
+  var k0 = Math.floor(lo / PERIOD), k1 = Math.floor(hi / PERIOD);
+  for(k=k0;k<=k1;k++){
+    for(i=0;i<TREE_OFFSETS.length;i++){
+      var gi = k * TREE_OFFSETS.length + i;
+      trees.push({ x: k*PERIOD + TREE_OFFSETS[i], h: 230 + rnd(gi*13+3)*70, seed: gi*7+3, branchY: GROUND - 128 - rnd(gi*29+11)*26 });
+    }
   }
-})();
-var HOUSE = { x: 1745, w: 230, capY: GROUND - 196 };   /* 巨型蘑菇屋中心 x */
-var VOLCANO_X = 2470;
-var grassTufts = [], flowers = [], stones = [];
-(function(){
-  var i;
-  for(i=0;i<70;i++) grassTufts.push({ x: rnd(i*3+1)*WORLD_W, s: .7+rnd(i*7)*.7, seed:i });
-  for(i=0;i<26;i++) flowers.push({ x: rnd(i*11+5)*WORLD_W, c:['#d9534a','#e3a008','#4a7fb5','#c86bb8'][i%4], seed:i*3 });
-  for(i=0;i<16;i++) stones.push({ x: rnd(i*17+2)*WORLD_W, r: 6+rnd(i*5)*9, seed:i*9 });
-})();
+  var g1 = Math.ceil(hi/37);
+  for(gx=Math.floor(lo/37); gx<=g1; gx++) grassTufts.push({ x: gx*37 + rnd(gx*3+1)*22, s: .7+rnd(gx*7)*.7, seed: gx });
+  var f1 = Math.ceil(hi/100);
+  for(gx=Math.floor(lo/100); gx<=f1; gx++) flowers.push({ x: gx*100 + rnd(gx*11+5)*60, c:['#d9534a','#e3a008','#4a7fb5','#c86bb8'][((gx%4)+4)%4], seed: gx*3 });
+  var s1 = Math.ceil(hi/163);
+  for(gx=Math.floor(lo/163); gx<=s1; gx++) stones.push({ x: gx*163 + rnd(gx*17+2)*90, r: 6+rnd(gx*5)*9, seed: gx*9 });
+}
+buildWorldWindow(300);
 var bgClouds = [];
 (function(){
-  for(var i=0;i<9;i++) bgClouds.push({ x: rnd(i*31)*WORLD_W, y: 40+rnd(i*13)*110, s: .7+rnd(i*7)*.8, seed:i*17, v: 4+rnd(i*3)*5 });
+  for(var i=0;i<9;i++) bgClouds.push({ x: rnd(i*31)*2600, y: 40+rnd(i*13)*110, s: .7+rnd(i*7)*.8, seed:i*17, v: 4+rnd(i*3)*5 });
 })();
 
-/* ================= 天气 ================= */
+/* ================= Weather ================= */
 var WEATHERS = [
-  { id:'sunny',    name:'晴天', icon:'☀️', sky:'#fdf6da', far:'#f3ead0', spawnMs:3000, max:7 },
-  { id:'cloudy',   name:'多云', icon:'⛅', sky:'#f7f1dc', far:'#eee4c8', spawnMs:3000, max:7 },
-  { id:'overcast', name:'阴天', icon:'☁️', sky:'#e9e6da', far:'#ddd8c6', spawnMs:3000, max:7 },
-  { id:'drizzle',  name:'小雨', icon:'🌦️', sky:'#e6ecdf', far:'#d5ddc9', spawnMs:1300, max:12 },
-  { id:'storm',    name:'暴雨', icon:'🌧️', sky:'#dde4dd', far:'#c9d2c6', spawnMs:900,  max:15 },
-  { id:'firerain', name:'火雨', icon:'🌋', sky:'#fbeed7', far:'#f2ddba', spawnMs:3000, max:7 },
-  { id:'thunder',  name:'雷电', icon:'⛈️', sky:'#dcdce4', far:'#c6c6d2', spawnMs:3000, max:7 }
+  { id:'sunny',    name:'Sunny', icon:'☀️', sky:'#fdf6da', far:'#f3ead0', spawnMs:3000, max:7 },
+  { id:'cloudy',   name:'Cloudy', icon:'⛅', sky:'#f7f1dc', far:'#eee4c8', spawnMs:3000, max:7 },
+  { id:'overcast', name:'Overcast', icon:'☁️', sky:'#e9e6da', far:'#ddd8c6', spawnMs:3000, max:7 },
+  { id:'drizzle',  name:'Light rain', icon:'🌦️', sky:'#e6ecdf', far:'#d5ddc9', spawnMs:1300, max:12 },
+  { id:'storm',    name:'Downpour', icon:'🌧️', sky:'#dde4dd', far:'#c9d2c6', spawnMs:900,  max:15 },
+  { id:'firerain', name:'Fire rain', icon:'🌋', sky:'#fbeed7', far:'#f2ddba', spawnMs:3000, max:7 },
+  { id:'thunder',  name:'Thunderstorm', icon:'⛈️', sky:'#dcdce4', far:'#c6c6d2', spawnMs:3000, max:7 }
 ];
 var wxOrder = [], wxIdx = 0, wxTimer = 0, wxDur = 20000;
 function shuffleWx(){
   wxOrder = WEATHERS.slice();
   for(var i=wxOrder.length-1;i>0;i--){ var j = Math.floor(Math.random()*(i+1)); var t=wxOrder[i]; wxOrder[i]=wxOrder[j]; wxOrder[j]=t; }
-  /* 开局先给个晴天，手感友好 */
+  /* Start with sunny weather to keep the opening friendly */
   var si = wxOrder.findIndex(function(w){return w.id==='sunny';});
   var tmp = wxOrder[0]; wxOrder[0]=wxOrder[si]; wxOrder[si]=tmp;
   wxIdx = 0;
@@ -428,47 +468,72 @@ function curWx(){ return wxOrder[wxIdx % wxOrder.length]; }
 function nextWx(){ return wxOrder[(wxIdx+1) % wxOrder.length]; }
 function isRain(){ var id = curWx().id; return id==='drizzle' || id==='storm'; }
 
-/* ================= 实体 ================= */
+/* ================= Entities ================= */
 function makeActor(key, x){
   var c = CHARS[key];
   return {
     key:key, def:c, x:x, y:GROUND, vx:0, vy:0, face:1,
     onGround:true, climbing:false, climbTree:null,
-    walkPh:0, faceCoverT:0, bubble:'', bubbleT:0,
+    walkPh:0, faceCoverT:0, bubble:'', bubbleT:0, stompT:0, pack:0,
+    halluT:0, squatT:0,
     ai: key!==playerKey, aiTarget:null, aiWait:0, aiPickCd:0, aiDir:1, aiThink:0
   };
 }
 var actors = [], player = null;
 var mushrooms = [], mushSeq = 1, spawnTimer = 0;
-var particles = [], rainDrops = [], embers = [], bolts = [];
-var backpack = 0, started = false, won = false, startTime = 0, elapsed = 0;
-var camX = 0, flashT = 0, warnT = 0, strikeTimer = 3.2, shakeT = 0;
+var particles = [], sporeParticles = [], rainDrops = [], embers = [], bolts = [];
+var halluOrbs = [];   /* Colorful orbs floating during a hallucination (they aren’t real) */
+var touchingBolete = null;   /* The bolete the player is touching (click to stomp it) */
+var started = false, won = false, paused = false, startTime = 0, elapsed = 0;
+var camX = 0, flashT = 0, warnT = 0, strikeTimer = 3.2, shakeT = 0, wasInHouse = false;
 var toastMsg = '', toastUntil = 0;
 
 function actorByKey(k){ for(var i=0;i<actors.length;i++) if(actors[i].key===k) return actors[i]; return null; }
-function inHouse(a){ return Math.abs(a.x - HOUSE.x) < HOUSE.w/2 - 26 && a.y > GROUND - 190; }
+function inHouse(a){ return Math.abs(a.x - houseCenterNear(a.x)) < HOUSE.w/2 - 26 && a.y > GROUND - 190; }
 
-function spawnMushroom(forceX){
+function spawnMushroom(forceX, forceKind){
   if(mushrooms.length >= curWx().max + 4) return;
   var onBranch = Math.random() < 0.22;
   var x, y;
   if(onBranch){
-    var t = trees[Math.floor(Math.random()*trees.length)];
+    var spawnCx = player ? player.x : 300;
+    var nearTrees = trees.filter(function(tr){ return Math.abs(tr.x - spawnCx) < 1000; });
+    var t = (nearTrees.length ? nearTrees : trees)[Math.floor(Math.random()*(nearTrees.length ? nearTrees.length : trees.length))];
     x = t.x + (Math.random()<.5?-1:1) * (26 + Math.random()*30);
     y = t.branchY;
   } else {
-    x = (forceX !== undefined) ? forceX : 60 + Math.random()*(WORLD_W-120);
+    x = (forceX !== undefined) ? forceX : (player ? player.x : 300) + (Math.random()*2-1) * 780;
     y = GROUND;
-    if(Math.abs(x-HOUSE.x) < 90) x += 160; /* 屋里不长 */
+    if(Math.abs(x-houseCenterNear(x)) < 90) x += 160; /* doesn't grow inside the house */
   }
+  /* Kinds: only regular mushrooms grow on branches; about 30% of ground mushrooms are boletes (max  3  at a time), and boletes never go in a backpack; 
+     fly agarics are rarer (max  1  at a time) and cause hallucinations when touched */
+  var boleteCount = 0, flyCount = 0, bi;
+  for(bi=0;bi<mushrooms.length;bi++){
+    if(mushrooms[bi].kind === 'bolete') boleteCount++;
+    if(mushrooms[bi].kind === 'flyagaric') flyCount++;
+  }
+  var kind = 'mushroom';
+  if(forceKind) kind = forceKind;
+  else if(!onBranch && boleteCount < 3 && Math.random() < 0.3) kind = 'bolete';
+  else if(!onBranch && flyCount < 1 && Math.random() < 0.12) kind = 'flyagaric';
+  if(kind !== 'mushroom' && onBranch){ y = GROUND; } /* boletes and fly agarics only grow on the ground */
   mushrooms.push({
-    id: mushSeq++, x:x, y:y, onBranch:onBranch,
-    cap:['#d9534a','#e8862e','#c86bb8','#4a7fb5'][Math.floor(Math.random()*4)],
-    s: .85 + Math.random()*.35, born: performance.now(), spotted:{}
+    id: mushSeq++, x:x, y:y, onBranch:(kind !== 'mushroom' ? false : onBranch), kind:kind,
+    cap: kind === 'bolete'
+      ? ['#8a5a2b','#a0682f','#7c4f24'][Math.floor(Math.random()*3)]
+      : kind === 'flyagaric'
+        ? '#e33224'
+        : ['#e3a008','#e8862e','#c86bb8','#4a7fb5'][Math.floor(Math.random()*4)], /* Regular mushrooms never use red — red is reserved for the fly agaric so they can’t be confused */
+    s: kind === 'bolete' ? 1.05 + Math.random()*.3 : .85 + Math.random()*.35,
+    born: performance.now(), spotted:{},
+    sprayT:0, stomped:false, hinted:false
   });
+  /* When a mushroom sprouts nearby, a very soft "pop" (inaudible from far away) */
+  if(started && player && Math.abs(x - player.x) < 480 && Math.random() < .65) sndPop();
 }
 
-/* ================= 声音（合成，无音频文件） ================= */
+/* ================= Sound (synthesized, no audio files) ================= */
 var audioCtx = null, soundOn = true;
 function beep(freq, dur, type, vol, slideTo){
   if(!soundOn) return;
@@ -487,6 +552,13 @@ function beep(freq, dur, type, vol, slideTo){
 function sndPick(){ beep(660,.09,'triangle',.14); setTimeout(function(){ beep(990,.12,'triangle',.12); },70); }
 function sndSpot(){ beep(520,.08,'square',.06,780); }
 function sndJump(){ beep(300,.12,'sine',.08,520); }
+function sndStomp(){ beep(170,.16,'sine',.22,60); setTimeout(function(){ beep(90,.12,'sine',.16,50); },60); }
+function sndSpore(){ beep(340,.28,'triangle',.07,760); }
+function sndHallu(){
+  beep(840,.45,'sine',.12,180);
+  setTimeout(function(){ beep(180,.5,'sine',.10,880); },160);
+  setTimeout(function(){ beep(660,.4,'triangle',.08,240); },380);
+}
 function sndThunder(){
   if(!soundOn) return;
   try{
@@ -501,21 +573,102 @@ function sndThunder(){
     src.connect(f); f.connect(g); g.connect(audioCtx.destination); src.start();
   }catch(e){}
 }
+/* ---- New sound effects: footsteps / landing / ambience / cues (all synthesized, kept quiet) ---- */
+function sndStep(climb){
+  /* Soft pattering footsteps; a slightly higher pitch when climbing */
+  beep(climb ? 240 + Math.random()*50 : 150 + Math.random()*40, .05, 'triangle', .045, climb ? 190 : 110);
+}
+function sndLand(){ beep(120,.11,'sine',.13,55); }                 /* Landing thud */
+function sndSquat(){ beep(300,.1,'sine',.07,170); }                /* Trying to jump during a hallucination but squatting instead: a droopy little sound */
+function sndBoing(){ beep(190,.16,'sine',.08,430); }               /* Bumping into a bolete: a little boing */
+function sndPop(){ beep(310 + Math.random()*90,.06,'sine',.028,540); } /* A mushroom sprouting nearby: a very soft pop */
+function sndAiPick(){ beep(520,.07,'triangle',.032,760); }         /* A partner picks a mushroom: a faint sound from far away */
+function sndBird(){
+  /* Occasional birdsong on sunny days: two or three little rising chirps */
+  var base = 2200 + Math.random()*500;
+  beep(base,.07,'sine',.03,base*1.25);
+  setTimeout(function(){ beep(base*1.12,.06,'sine',.026,base*1.4); },110);
+  if(Math.random() < .5) setTimeout(function(){ beep(base*.95,.08,'sine',.022,base*1.2); },230);
+}
+function sndWxChime(w){
+  if(w.id === 'thunder'){ beep(96,.55,'sine',.11,62); return; }   /* Thunder coming: one low note */
+  beep(523,.13,'triangle',.06);
+  setTimeout(function(){ beep(784,.18,'triangle',.055); },130);
+}
+function sndRumble(){
+  /* A distant rumble warning before lightning strikes */
+  if(!soundOn) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    var len = audioCtx.sampleRate * .8, buf = audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+    var d = buf.getChannelData(0), i;
+    for(i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.sin(Math.PI * i/len) * .8;
+    var src = audioCtx.createBufferSource(); src.buffer = buf;
+    var f = audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value = 130;
+    var g = audioCtx.createGain(); g.gain.value = .34;
+    src.connect(f); f.connect(g); g.connect(audioCtx.destination); src.start();
+  }catch(e){}
+}
+function sndZap(){ beep(720,.32,'sawtooth',.07,110); setTimeout(function(){ beep(420,.22,'sawtooth',.05,80); },90); } /* Backpack emptied by lightning */
+function sndSafe(){ beep(392,.14,'sine',.055); setTimeout(function(){ beep(587,.2,'sine',.05); },110); }              /* Entering the mushroom house: two reassuring notes */
+function sndRelief(){ beep(440,.13,'triangle',.06); setTimeout(function(){ beep(660,.22,'triangle',.06); },120); }    /* Hallucination ends: a sigh of relief */
+function sndClick(){ beep(600,.05,'triangle',.06,760); }           /* Button click */
+function sndStart(){
+  beep(523,.11,'triangle',.09);
+  setTimeout(function(){ beep(659,.11,'triangle',.09); },100);
+  setTimeout(function(){ beep(784,.2,'triangle',.1); },200);
+}
+function sndWin(){
+  /* Victory fanfare: an arpeggio rushing upward */
+  var notes = [523,659,784,1047];
+  for(var i=0;i<notes.length;i++){
+    (function(n, k){ setTimeout(function(){ beep(n,.22,'triangle',.11); }, k*130); })(notes[i], i);
+  }
+  setTimeout(function(){ beep(1319,.4,'triangle',.1,1568); },560);
+}
+/* ---- Looping rain sound: white noise through a low-pass filter, volume follows light rain/downpour levels ---- */
+var rainGain = null, rainSrc = null;
+function updateRainAmbience(){
+  if(!soundOn){ stopRainAmbience(); return; }
+  var id = started ? curWx().id : '';
+  var level = id === 'storm' ? 1 : id === 'drizzle' ? .45 : 0;
+  if(level <= 0){ stopRainAmbience(); return; }
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    if(!rainSrc){
+      var len = audioCtx.sampleRate * 2, buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      var d = buf.getChannelData(0), i;
+      for(i=0;i<len;i++) d[i] = Math.random()*2-1;
+      rainSrc = audioCtx.createBufferSource(); rainSrc.buffer = buf; rainSrc.loop = true;
+      var f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 850;
+      rainGain = audioCtx.createGain(); rainGain.gain.value = 0;
+      rainSrc.connect(f); f.connect(rainGain); rainGain.connect(audioCtx.destination);
+      rainSrc.start();
+    }
+    rainGain.gain.setTargetAtTime(.015 + level*.045, audioCtx.currentTime, .5);
+  }catch(e){}
+}
+function stopRainAmbience(){
+  try{ if(rainGain && audioCtx) rainGain.gain.setTargetAtTime(0, audioCtx.currentTime, .25); }catch(e){}
+}
 
-/* ================= 提示 ================= */
+/* ================= Toasts ================= */
 var toastEl = document.getElementById('toast');
 function toast(msg, ms){
   toastMsg = msg; toastUntil = performance.now() + (ms || 2600);
   toastEl.textContent = msg; toastEl.classList.add('show');
 }
 
-/* ================= 输入 ================= */
+/* ================= Input ================= */
 var keys = {};
 var touch = { left:false, right:false, up:false, down:false, jump:false };
 window.addEventListener('keydown', function(e){
   keys[e.code] = true;
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].indexOf(e.code) >= 0) e.preventDefault();
   if(e.code === 'KeyE') tryPick(player);
+  if(e.code === 'KeyP' || e.code === 'Escape') togglePause();
 });
 window.addEventListener('keyup', function(e){ keys[e.code] = false; });
 function bindHold(id, prop){
@@ -531,28 +684,37 @@ bindHold('btnLeft','left'); bindHold('btnRight','right');
 bindHold('btnUp','up'); bindHold('btnDown','down');
 document.getElementById('btnJump').addEventListener('pointerdown', function(e){ e.preventDefault(); touch.jump = true; });
 document.getElementById('btnJump').addEventListener('pointerup', function(){ touch.jump = false; });
-document.getElementById('btnPick').addEventListener('pointerdown', function(e){ e.preventDefault(); tryPick(player); });
+document.getElementById('btnPick').addEventListener('pointerdown', function(e){ e.preventDefault(); if(!tryStomp()) tryPick(player); });
+/* Tap the screen (mouse/touch): when touching a bolete, the player stomps it → spore spray */
+canvas.addEventListener('pointerdown', function(){ tryStomp(); });
 var jumpWasDown = false;
 
-/* ================= 采蘑菇 ================= */
+/* ================= Picking mushrooms ================= */
 function burst(x,y,color){
   for(var i=0;i<10;i++){
     particles.push({ x:x, y:y-14, vx:(Math.random()-.5)*160, vy:-Math.random()*160-30, life:.6, color:color, r:2.5+Math.random()*2.5 });
   }
 }
 function collectMushroom(a, m){
+  if(m.kind !== 'mushroom') return; /* Only regular mushrooms go into a backpack */
   mushrooms.splice(mushrooms.indexOf(m),1);
-  backpack = Math.min(CAPACITY, backpack + 1);
+  /* Everyone has their own backpack: whoever picks a mushroom gets it in their own pack, and each count only rises from that person's own picks */
+  a.pack = Math.min(CAPACITY, (a.pack || 0) + 1);
   burst(m.x, m.y, m.cap);
-  if(a === player){ sndPick(); }
-  updateHUD();
-  if(backpack >= CAPACITY && !won) winGame();
+  if(a === player){
+    sndPick();
+    updateHUD();
+    if(a.pack >= CAPACITY && !won) winGame();
+  } else {
+    sndAiPick(); /* A partner picking one also makes a soft sound, so you can hear them working */
+  }
 }
 function tryPick(a){
   if(!started || won || !a) return;
   var best = null, bd = 64;
   for(var i=0;i<mushrooms.length;i++){
     var m = mushrooms[i];
+    if(m.kind !== 'mushroom') continue;
     var d = Math.hypot(m.x - a.x, (m.y) - (a.y - 20));
     if(d < bd){ bd = d; best = m; }
   }
@@ -562,6 +724,7 @@ function nearestMushroom(x, y, ignoreBranch){
   var best = null, bd = 1e9;
   for(var i=0;i<mushrooms.length;i++){
     var m = mushrooms[i];
+    if(m.kind !== 'mushroom') continue; /* AI partners only go for regular mushrooms; they never touch boletes or fly agarics */
     if(ignoreBranch && m.onBranch) continue;
     var d = Math.hypot(m.x-x, m.y-y);
     if(d < bd){ bd = d; best = m; }
@@ -569,20 +732,113 @@ function nearestMushroom(x, y, ignoreBranch){
   return best;
 }
 
-/* ================= 天气/闪电 ================= */
+/* ================= Touch to pick + bolete spore spray (No.3 / No.6 / No.7) ================= */
+/* The player touches a regular mushroom → it goes straight into the backpack, no button needed */
+function checkTouchPickup(){
+  var p = player;
+  if(!p || !started || won) { touchingBolete = null; return; }
+  touchingBolete = null;
+  for(var i=mushrooms.length-1;i>=0;i--){
+    var m = mushrooms[i];
+    /* Branch mushrooms grow beside the trunk,  26–56px out, and while climbing the player's x is locked to the trunk, so a normal 
+       32px reach can’t touch them — widen the horizontal reach to 64 (the same reach as the old  E key pick), so 
+       standing on a branch or climbing past can touch them; the vertical reach stays tight, so tree mushrooms can’t be picked from the ground. */
+    var reachX = m.onBranch ? 64 : 32;
+    var reachY = m.onBranch ? 40 : 30;
+    var touching = Math.abs(m.x - p.x) < reachX && Math.abs(m.y - p.y) < reachY;
+    if(!touching) continue;
+    if(m.kind === 'bolete'){
+      if(!m.stomped && m.sprayT <= 0){
+        touchingBolete = m;
+        if(!m.hinted){
+          m.hinted = true;
+          sndBoing();
+          sayBubble(p, 'A bolete! Click to stomp it!', 1700);
+          toast('🍄 You bumped into a bolete — click once and your character will stomp it!', 2600);
+        }
+      }
+    } else if(m.kind === 'flyagaric'){
+      /* Touching a fly agaric: doesn't go in a backpack, triggers a hallucination directly */
+      mushrooms.splice(i,1);
+      triggerHallucination(m.x, m.y);
+    } else {
+      collectMushroom(p, m);
+    }
+  }
+}
+/* Brownish-yellow spores */
+var SPORE_COLORS = ['#b5892e','#c9a227','#a67c2e','#d4b04a','#8a6d1f','#caa64b'];
+function emitSpores(b, n){
+  for(var i=0;i<n;i++){
+    sporeParticles.push({
+      x: b.x + (Math.random()-.5)*22, y: b.y - 20 - Math.random()*6,
+      vx: (Math.random()-.5)*130, vy: -60 - Math.random()*150,
+      life: 1.1 + Math.random()*1.1, maxLife: 2.2,
+      color: SPORE_COLORS[Math.floor(Math.random()*SPORE_COLORS.length)],
+      r: 2 + Math.random()*3
+    });
+  }
+}
+/* Click: the player stomps the bolete they're touching → the bolete starts spraying spores */
+function tryStomp(){
+  if(!started || won || !player) return false;
+  var b = touchingBolete;
+  if(!b || b.stomped || mushrooms.indexOf(b) < 0) return false;
+  b.stomped = true;
+  b.sprayT = 2.6;               /* sprays for about 2.6 s, then shrivels and disappears */
+  player.stompT = .35;          /* the player's stomp animation */
+  player.face = b.x >= player.x ? 1 : -1;
+  sndStomp(); sndSpore();
+  emitSpores(b, 26);
+  sayBubble(player, 'Stomp! Spores everywhere!', 1500);
+  toast('💨 The bolete sprayed out brownish-yellow spores!', 2400);
+  return true;
+}
+/* Bolete spray progress: keeps emitting spores while spraying, removed when done */
+function updateBoletes(dt){
+  for(var i=mushrooms.length-1;i>=0;i--){
+    var m = mushrooms[i];
+    if(m.kind !== 'bolete' || m.sprayT <= 0) continue;
+    m.sprayT -= dt;
+    emitSpores(m, 3);
+    if(m.sprayT <= 0){
+      emitSpores(m, 10);
+      mushrooms.splice(i,1);
+      if(touchingBolete === m) touchingBolete = null;
+    }
+  }
+}
+
+/* ================= Fly agaric hallucination (No.11) =================
+   Touch a fly agaric → 15 s hallucination: walk upside down, controls fully reversed (jump becomes squat), 
+   see blinding flashes that aren’t real / colorful downpours / giant mushrooms, and the whole world warps. */
+function triggerHallucination(x, y){
+  if(!player) return;
+  var again = player.halluT > 0;
+  player.halluT = 15;
+  burst(x, y, '#e33224');
+  sndHallu();
+  sayBubble(player, 'Whoa — the world is spinning!', 2100);
+  toast(again
+    ? '🍄✨ Another fly agaric! The hallucination restarts — controls are still reversed!'
+    : '🍄✨ Oh no, you touched a fly agaric! You’re hallucinating: walking upside down, controls all reversed, and seeing things that aren’t there! Hang on for 15 s and you’ll be fine~', 3800);
+}
+
+/* ================= Weather/lightning ================= */
 function setWeather(announce){
   var w = curWx();
   wxTimer = 0;
   wxDur = 15000 + Math.random()*8000;
   if(w.id === 'thunder'){ strikeTimer = 2.6; }
   rainDrops = []; embers = [];
-  if(announce) toast(w.icon + ' 天气变成「' + w.name + '」' + weatherHint(w), 3000);
+  if(announce){ toast(w.icon + '  The weather is now "' + w.name + '"' + weatherHint(w), 3000); sndWxChime(w); }
+  updateRainAmbience();
   updateHUD();
 }
 function weatherHint(w){
-  if(w.id==='drizzle' || w.id==='storm') return '——蘑菇变多了！';
-  if(w.id==='thunder') return '——快躲进蘑菇屋！';
-  if(w.id==='firerain') return '——火山在下火雨！';
+  if(w.id==='drizzle' || w.id==='storm') return ' — more mushrooms now!';
+  if(w.id==='thunder') return ' — hurry into a mushroom house!';
+  if(w.id==='firerain') return ' — the volcano is raining fire!';
   return '';
 }
 function lightningStrike(){
@@ -592,11 +848,10 @@ function lightningStrike(){
   if(player && !inHouse(player) && Math.random() < .75){
     sx = player.x + (Math.random()-.5)*260;
   } else {
-    sx = 80 + Math.random()*(WORLD_W-160);
+    sx = (player ? player.x : 300) + (Math.random()-.5) * (VIEW_W + 300);
   }
-  sx = Math.max(30, Math.min(WORLD_W-30, sx));
   bolts.push({ x:sx, life:.3, seed:Math.random()*100 });
-  /* 烧毁落点附近的蘑菇 */
+  /* Burn the mushrooms near the strike point */
   var burned = 0;
   for(var i=mushrooms.length-1;i>=0;i--){
     if(Math.abs(mushrooms[i].x - sx) < 130 && !mushrooms[i].onBranch){
@@ -605,24 +860,28 @@ function lightningStrike(){
     }
   }
   if(player && started && !won){
+    /* Anyone not sheltering in a mushroom house gets their own backpack emptied by lightning */
+    var playerHad = player.pack > 0;
+    for(var ai2=0; ai2<actors.length; ai2++){ if(!inHouse(actors[ai2])) actors[ai2].pack = 0; }
     if(inHouse(player)){
-      toast('⚡ 闪电劈在蘑菇屋上——屋里安全，背包保住了！', 2800);
-    } else if(backpack > 0){
-      backpack = 0; updateHUD();
-      toast('⚡ 轰隆！闪电烧毁了蘑菇，背包被清空了！快躲进蘑菇屋！', 3400);
+      toast('⚡ Lightning struck the mushroom house — you’re safe inside and your backpack is safe too!', 2800);
+    } else if(playerHad){
+      sndZap();
+      updateHUD();
+      toast('⚡ BOOM! Lightning burned the mushrooms and emptied your backpack! Get into a mushroom house, quick!', 3400);
     } else {
-      toast('⚡ 好险！闪电就在附近，背包是空的没损失——快进蘑菇屋！', 3000);
+      toast('⚡ That was close! Lightning struck nearby — your backpack was empty, so nothing was lost. Get into a mushroom house!', 3000);
     }
   }
-  if(burned > 0 && inHouse(player)) { /* 屋内提示已覆盖 */ }
+  if(burned > 0 && inHouse(player)) { /* covered by the indoors message */ }
 }
 
-/* ================= AI 伙伴 ================= */
+/* ================= AI  partner ================= */
 function updateAI(a, dt){
   a.aiPickCd -= dt; a.aiThink -= dt;
   if(curWx().id === 'thunder' && !inHouse(a)){
-    /* 打雷先跑回蘑菇屋 */
-    moveToward(a, HOUSE.x, dt, 1.35);
+    /* During thunder, run back to the mushroom house first */
+    moveToward(a, houseCenterNear(a.x), dt, 1.35);
     return;
   }
   if(a.aiWait > 0){ a.aiWait -= dt; a.vx = 0; return; }
@@ -632,11 +891,10 @@ function updateAI(a, dt){
     a.aiTarget = target; a.aiThink = .6;
   }
   if(!target){
-    /* 没蘑菇就散步 */
+    /* No mushrooms: just wander */
     if(a.aiThink <= 0){ a.aiDir = Math.random()<.5?-1:1; a.aiThink = 1.6; }
     a.vx = a.aiDir * 55; a.face = a.aiDir;
     a.x += a.vx * dt;
-    a.x = Math.max(30, Math.min(WORLD_W-30, a.x));
     return;
   }
   var dx = target.x - a.x;
@@ -644,9 +902,9 @@ function updateAI(a, dt){
     a.vx = 0;
     if(a.aiPickCd <= 0 && !won){
       a.aiPickCd = 2.4;
-      a.aiWait = .55; /* 捂脸+拾取停顿 */
+      a.aiWait = .55; /* face-cover+pickup pause */
       collectMushroom(a, target);
-      if(Math.random() < .4) sayBubble(a, '采到啦！🍄');
+      if(Math.random() < .4) sayBubble(a, 'Got one! 🍄');
       a.aiTarget = null;
     }
   } else {
@@ -662,30 +920,30 @@ function moveToward(a, tx, dt, speedMul){
     a.x += a.vx * dt;
     a.walkPh += dt * 9;
   } else a.vx = 0;
-  a.x = Math.max(30, Math.min(WORLD_W-30, a.x));
 }
 function sayBubble(a, text, ms){
   a.bubble = text; a.bubbleT = (ms || 1800)/1000;
 }
 
-/* 发现蘑菇 → 捂脸动画 */
+/* Spotting a mushroom → face-cover animation */
 function checkSpot(a){
   for(var i=0;i<mushrooms.length;i++){
     var m = mushrooms[i];
+    if(m.kind !== 'mushroom') continue;
     if(m.spotted[a.key]) continue;
     var d = Math.hypot(m.x - a.x, m.y - (a.y - 24));
     if(d < 118){
       m.spotted[a.key] = true;
       if(performance.now() - m.born > 350){
         a.faceCoverT = .95;
-        if(a === player){ sndSpot(); sayBubble(a, '哇！蘑菇！', 1100); }
-        else if(Math.random() < .55){ sayBubble(a, '这里有蘑菇！', 1600); }
+        if(a === player){ sndSpot(); sayBubble(a, 'Wow! A mushroom!', 1100); }
+        else if(Math.random() < .55){ sayBubble(a, 'There’s a mushroom here!', 1600); }
       }
     }
   }
 }
 
-/* ================= 玩家更新 ================= */
+/* ================= Player update ================= */
 function nearestTree(x){
   var best = null, bd = 40;
   for(var i=0;i<trees.length;i++){
@@ -702,11 +960,22 @@ function updatePlayer(dt){
   var down = keys['ArrowDown'] || keys['KeyS'] || touch.down;
   var jumpDown = keys['Space'] || keys['KeyJ'] || touch.jump;
 
+  /* Fly agaric hallucination: controls fully reversed — left/right swapped, up/down swapped, and trying to jump makes you squat */
+  if(p.halluT > 0){
+    var swapL = left; left = right; right = swapL;
+    var swapU = up; up = down; down = swapU;
+    if(jumpDown && !jumpWasDown) sndSquat();
+    if(jumpDown) p.squatT = .22;
+    jumpDown = false;
+  }
+  if(p.squatT > 0) p.squatT -= dt;
+
   if(p.climbing){
     var t = p.climbTree;
     p.x = t.x; p.vy = 0;
     if(up) p.y -= 130 * dt;
     if(down) p.y += 130 * dt;
+    if(up || down){ p.stepT = (p.stepT || 0) + dt; if(p.stepT > .3){ p.stepT = 0; sndStep(true); } }
     var topY = GROUND - t.h + 78;
     if(p.y < topY) p.y = topY;
     if(p.y >= GROUND){ p.y = GROUND; p.climbing = false; p.climbTree = null; p.onGround = true; }
@@ -721,19 +990,24 @@ function updatePlayer(dt){
     p.vx = 0;
     if(left){ p.vx = -sp; p.face = -1; }
     if(right){ p.vx = sp; p.face = 1; }
+    if(p.squatT > 0) p.vx = 0;   /* can’t walk while squatting */
     p.x += p.vx * dt;
-    if(p.vx !== 0 && p.onGround) p.walkPh += dt * 11;
+    if(p.vx !== 0 && p.onGround){
+      p.walkPh += dt * 11;
+      p.stepT = (p.stepT || 0) + dt;
+      if(p.stepT > .27){ p.stepT = 0; sndStep(false); }   /* pattering footsteps while walking */
+    }
 
-    /* 开始爬树 */
+    /* Start climbing */
     if(up && p.onGround){
       var nt = nearestTree(p.x);
       if(nt){ p.climbing = true; p.climbTree = nt; p.x = nt.x; p.vy = 0; }
     }
-    /* 跳跃 */
+    /* Jump */
     if(jumpDown && !jumpWasDown && p.onGround){
       p.vy = -560; p.onGround = false; sndJump();
     }
-    /* 重力 + 树枝平台 */
+    /* Gravity + branch platform */
     p.vy += 1500 * dt;
     p.y += p.vy * dt;
     var floor = GROUND;
@@ -744,20 +1018,22 @@ function updatePlayer(dt){
         if(prevBottom <= tr.branchY + 6 && p.y >= tr.branchY) floor = Math.min(floor, tr.branchY);
       }
     }
-    if(p.y >= floor){ p.y = floor; p.vy = 0; p.onGround = true; }
+    var landV = p.vy, wasAirborne = !p.onGround;
+    if(p.y >= floor){ p.y = floor; p.vy = 0; p.onGround = true; if(wasAirborne && landV > 300) sndLand(); }
     else if(p.y < floor - 2) p.onGround = false;
   }
-  p.x = Math.max(26, Math.min(WORLD_W - 26, p.x));
+  /* Infinite world: the player has no left/right boundary and can walk forever */
   jumpWasDown = !!jumpDown;
 }
 
-/* ================= 主循环 ================= */
-var lastTs = 0;
+/* ================= Main loop ================= */
+var lastTs = 0, animT = 0;
 function loop(ts){
   requestAnimationFrame(loop);
   var dt = Math.min(.033, (ts - lastTs) / 1000 || .016);
   lastTs = ts;
-  if(started && !won){
+  if(!paused) animT += dt;   /* When paused, even the little on-screen wobbles freeze */
+  if(started && !won && !paused){
     elapsed += dt;
     updatePlayer(dt);
     for(var i=0;i<actors.length;i++){
@@ -765,26 +1041,41 @@ function loop(ts){
       if(a !== player) updateAI(a, dt);
       if(a.faceCoverT > 0) a.faceCoverT -= dt;
       if(a.bubbleT > 0) a.bubbleT -= dt;
+      if(a.stompT > 0) a.stompT -= dt;
+      if(a.halluT > 0){
+        a.halluT -= dt;
+        if(a.halluT <= 0){
+          a.halluT = 0;
+          if(a === player){ sndRelief(); toast('Phew — the hallucination is over! Controls are back to normal and the world has stopped spinning.', 2800); }
+        }
+      }
       checkSpot(a);
     }
-    /* 天气轮换 */
+    checkTouchPickup();   /* Touching a regular mushroom picks it automatically; touching a bolete waits for a click */
+    updateBoletes(dt);    /* A spraying bolete keeps emitting spores */
+    /* Infinite world: remove mushrooms too far from the player; mushrooms only grow nearby */
+    for(var fm=mushrooms.length-1; fm>=0; fm--){
+      if(Math.abs(mushrooms[fm].x - player.x) > 2400) mushrooms.splice(fm,1);
+    }
+    /* Weather rotation */
     wxTimer += dt * 1000;
     if(wxTimer >= wxDur){ wxIdx++; setWeather(true); }
-    /* 蘑菇生成 */
+    /* Mushroom spawning */
     spawnTimer -= dt * 1000;
     var groundCount = mushrooms.filter(function(m){return !m.onBranch;}).length;
     if(spawnTimer <= 0){
       spawnTimer = curWx().spawnMs * (0.75 + Math.random()*.5);
       if(groundCount < curWx().max || Math.random() < .25) spawnMushroom();
     }
-    /* 雷电 */
+    /* Thunderstorm */
     if(curWx().id === 'thunder'){
       strikeTimer -= dt;
-      warnT = (strikeTimer < .7) ? warnT + dt : 0;
+      if(strikeTimer < .7){ if(warnT === 0) sndRumble(); warnT += dt; } else warnT = 0; /* a low rumble warns just before the strike */
       if(strikeTimer <= 0){ lightningStrike(); strikeTimer = 3 + Math.random()*1.6; }
     }
-    /* 雨滴/火雨粒子生成 */
+    /* Raindrops/fire-rain particle spawning */
     var wid = curWx().id;
+    if((wid === 'sunny' || wid === 'cloudy') && Math.random() < dt * .22) sndBird(); /* Occasional birdsong in fine weather */
     if(wid === 'drizzle' || wid === 'storm'){
       var n = wid === 'storm' ? 7 : 3, k;
       for(k=0;k<n;k++) rainDrops.push({ x: camX + Math.random()*(VIEW_W+80), y:-10, v: wid==='storm'?620:430, slant: wid==='storm'?-90:-40 });
@@ -792,23 +1083,38 @@ function loop(ts){
     if(wid === 'firerain'){
       for(var k2=0;k2<3;k2++) embers.push({ x: camX + Math.random()*VIEW_W, y:-8, v:150+Math.random()*130, sway:Math.random()*40, ph:Math.random()*6 });
     }
+    /* During a hallucination, colorful orbs that aren’t real keep appearing */
+    if(player.halluT > 0 && Math.random() < dt*7){
+      halluOrbs.push({ x: Math.random()*VIEW_W, y: VIEW_H + 30, vy: -(26+Math.random()*40), hue: Math.floor(Math.random()*360), r: 9+Math.random()*22, ph: Math.random()*6 });
+    }
     document.getElementById('clock').textContent = fmtTime(elapsed);
   }
-  /* 粒子推进 */
-  updateParticles(dt);
-  /* 相机 */
+  /* Particle update (frozen while paused) */
+  if(!paused) updateParticles(dt);
+  /* Camera */
   if(player){
     var target = player.x - VIEW_W/2;
     camX += (target - camX) * Math.min(1, dt*6);
-    camX = Math.max(0, Math.min(WORLD_W - VIEW_W, camX));
-    document.getElementById('stripDot').style.left = (player.x / WORLD_W * 100) + '%';
-    document.getElementById('safeBadge').classList.toggle('on', inHouse(player));
+    buildWorldWindow(player.x);
+    updateStrip();
+    var nowInHouse = inHouse(player);
+    document.getElementById('safeBadge').classList.toggle('on', nowInHouse);
+    if(nowInHouse && !wasInHouse && started && !won) sndSafe(); /* the moment you step into the mushroom house */
+    wasInHouse = nowInHouse;
+    var hb = document.getElementById('halluBadge');
+    if(hb){
+      var hon = player.halluT > 0;
+      hb.classList.toggle('on', hon);
+      if(hon) hb.textContent = '🌀 Hallucinating ' + Math.ceil(player.halluT) + ' s';
+    }
   }
-  if(flashT > 0) flashT -= dt;
-  if(shakeT > 0) shakeT -= dt;
-  for(var b=bolts.length-1;b>=0;b--){ bolts[b].life -= dt; if(bolts[b].life<=0) bolts.splice(b,1); }
+  if(!paused){
+    if(flashT > 0) flashT -= dt;
+    if(shakeT > 0) shakeT -= dt;
+    for(var b=bolts.length-1;b>=0;b--){ bolts[b].life -= dt; if(bolts[b].life<=0) bolts.splice(b,1); }
+  }
   if(toastEl.classList.contains('show') && performance.now() > toastUntil) toastEl.classList.remove('show');
-  draw(ts/1000);
+  draw(animT);
 }
 function updateParticles(dt){
   var i;
@@ -816,6 +1122,14 @@ function updateParticles(dt){
     var p = particles[i];
     p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 300*dt; p.life -= dt;
     if(p.life<=0) particles.splice(i,1);
+  }
+  for(i=sporeParticles.length-1;i>=0;i--){
+    var sp = sporeParticles[i];
+    sp.x += sp.vx*dt; sp.y += sp.vy*dt;
+    sp.vx *= (1 - .8*dt); sp.vy += 26*dt; /* Spores drift up gently, then slowly settle */
+    if(sp.vy > 26) sp.vy = 26;
+    sp.life -= dt;
+    if(sp.life<=0) sporeParticles.splice(i,1);
   }
   for(i=rainDrops.length-1;i>=0;i--){
     var r = rainDrops[i]; r.y += r.v*dt; r.x += r.slant*dt;
@@ -825,9 +1139,14 @@ function updateParticles(dt){
     var e = embers[i]; e.y += e.v*dt; e.x += Math.sin(e.ph + e.y*.02)*.6;
     if(e.y > VIEW_H) embers.splice(i,1);
   }
+  for(i=halluOrbs.length-1;i>=0;i--){
+    var ob = halluOrbs[i]; ob.y += ob.vy*dt; ob.x += Math.sin(ob.ph + ob.y*.02)*.5;
+    if(ob.y < -50) halluOrbs.splice(i,1);
+  }
   for(i=0;i<bgClouds.length;i++){
     bgClouds[i].x += bgClouds[i].v * dt;
-    if(bgClouds[i].x - camX > WORLD_W) bgClouds[i].x -= WORLD_W;
+    if(bgClouds[i].x - camX > VIEW_W + 220) bgClouds[i].x -= (VIEW_W + 440);
+    if(camX - bgClouds[i].x > 220) bgClouds[i].x += (VIEW_W + 440);
   }
 }
 function fmtTime(s){
@@ -835,13 +1154,15 @@ function fmtTime(s){
   return m + ':' + (ss<10?'0':'') + ss;
 }
 
-/* ================= 绘制 ================= */
+/* ================= Drawing ================= */
 function draw(t){
   var w = started ? curWx() : WEATHERS[0];
+  var hallu = !!(player && player.halluT > 0);
   ctx.save();
-  /* 天空（纸面） */
-  ctx.fillStyle = w.sky; ctx.fillRect(0,0,VIEW_W,VIEW_H);
-  /* 纸纹 */
+  /* Sky (paper): during a hallucination the sky becomes a slowly flowing rainbow */
+  ctx.fillStyle = hallu ? ('hsl(' + Math.floor((t*46) % 360) + ',82%,86%)') : w.sky;
+  ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  /* Paper grain */
   ctx.fillStyle = 'rgba(51,50,44,.035)';
   for(var g=0; g<40; g++){
     var gx = rnd(g*3 + Math.floor(camX/50))*VIEW_W, gy = rnd(g*7)*VIEW_H;
@@ -850,6 +1171,14 @@ function draw(t){
   var shX = shakeT>0 ? (Math.random()-.5)*7 : 0;
   var shY = shakeT>0 ? (Math.random()-.5)*5 : 0;
   ctx.translate(-camX + shX, shY);
+  if(hallu){
+    /* Hallucination: the whole world gently warps and sways around the screen center */
+    var ccx = camX + VIEW_W/2;
+    ctx.translate(ccx, VIEW_H/2);
+    ctx.transform(1, Math.sin(t*1.9)*.028, Math.sin(t*1.35)*.05, 1, 0, Math.sin(t*2.6)*4);
+    ctx.rotate(Math.sin(t*.75)*.014);
+    ctx.translate(-ccx, -VIEW_H/2);
+  }
 
   drawSunAndClouds(w, t);
   drawVolcano(w, t);
@@ -858,19 +1187,21 @@ function draw(t){
   drawHouse(t);
   for(var i=0;i<trees.length;i++) drawTree(trees[i], t);
   for(var m=0;m<mushrooms.length;m++) drawMushroom(mushrooms[m], t);
-  /* 先画 AI，再画玩家 */
+  /* Draw AI first AI, then the player */
   var sorted = actors.slice().sort(function(a,b){ return (a===player)?1:(b===player?-1:0); });
   for(var s=0;s<sorted.length;s++) drawActor(sorted[s], t);
   drawParticlesWorld();
+  if(hallu) drawPhantoms(t);   /* Giant fly agarics floating in the sky that aren’t real */
   ctx.restore();
 
-  /* 天气覆盖层（屏幕空间） */
+  /* Weather overlay (screen space) */
   drawWeatherFX(w, t);
+  if(hallu) drawHalluFX(t);
   if(flashT > 0){ ctx.fillStyle = 'rgba(255,255,240,' + (flashT*2.4) + ')'; ctx.fillRect(0,0,VIEW_W,VIEW_H); }
   if(curWx().id==='thunder' && started && warnT>0){
     ctx.fillStyle = 'rgba(70,70,90,' + (0.08 + Math.sin(t*30)*0.04) + ')'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
   }
-  /* 闪电（屏幕外坐标换算回世界） */
+  /* Lightning (converted back from screen to world coordinates) */
   ctx.save(); ctx.translate(-camX, 0);
   for(var b=0;b<bolts.length;b++) drawBolt(bolts[b]);
   ctx.restore();
@@ -899,7 +1230,11 @@ function drawSunAndClouds(w, t){
   }
 }
 function drawVolcano(w, t){
-  var x = VOLCANO_X, base = GROUND;
+  var vk0 = Math.floor((camX-280)/PERIOD), vk1 = Math.floor((camX+VIEW_W+280)/PERIOD);
+  for(var vk=vk0; vk<=vk1; vk++) drawOneVolcano(VOLCANO_OFFSET + vk*PERIOD, w, t);
+}
+function drawOneVolcano(x, w, t){
+  var base = GROUND;
   ctx.fillStyle = '#cbb9a0'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(x-190, base); ctx.lineTo(x-58, base-238); ctx.lineTo(x-26, base-238);
@@ -907,11 +1242,11 @@ function drawVolcano(w, t){
   ctx.lineTo(x+190, base); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#e8862e';
   ctx.beginPath(); ctx.ellipse(x+7, base-252, 34, 9, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-  /* 熔岩纹 */
+  /* Lava veins */
   ctx.strokeStyle = '#d9534a'; ctx.lineWidth = 3;
   doodleLine(x-10, base-238, x-22, base-160, 41, 3);
   doodleLine(x+26, base-232, x+44, base-150, 43, 3);
-  /* 烟 */
+  /* Smoke */
   ctx.fillStyle = 'rgba(120,116,108,.5)';
   for(var i=0;i<3;i++){
     var sy = base - 285 - i*36 - (t*14 % 36);
@@ -919,12 +1254,12 @@ function drawVolcano(w, t){
   }
   if(w.id === 'firerain'){
     ctx.fillStyle = '#d9534a'; ctx.font = '700 17px inherit';
-    ctx.fillText('火山喷发中！', x - 48, base - 330);
+    ctx.fillText('The volcano is erupting!', x - 48, base - 330);
   }
 }
 function drawFarTrees(w){
   ctx.strokeStyle = 'rgba(51,50,44,.4)'; ctx.fillStyle = 'rgba(180,190,160,.4)';
-  for(var i=0;i<14;i++){
+  for(var i=Math.floor((camX-140)/195); i<=Math.ceil((camX+VIEW_W+140)/195); i++){
     var x = i*195 + 60, h = 90 + rnd(i*23)*50;
     if(x < camX-120 || x > camX+VIEW_W+120) continue;
     doodleLine(x, GROUND-40, x, GROUND-40-h, i*7, 2);
@@ -932,7 +1267,7 @@ function drawFarTrees(w){
   }
 }
 function drawGround(w){
-  /* 地面 */
+  /* Ground */
   ctx.fillStyle = '#e9dfc2';
   ctx.fillRect(camX-20, GROUND, VIEW_W+40, VIEW_H-GROUND);
   ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
@@ -943,7 +1278,7 @@ function drawGround(w){
     ctx.lineTo(x+36, GROUND);
   }
   ctx.stroke();
-  /* 草地色块 */
+  /* Grass tint band */
   ctx.fillStyle = 'rgba(93,155,106,.20)';
   ctx.fillRect(camX-20, GROUND+2, VIEW_W+40, 16);
   var i, it;
@@ -973,7 +1308,7 @@ function drawGround(w){
 function drawTree(tr, t){
   var sway = Math.sin(t*.8 + tr.seed)*2.2;
   ctx.strokeStyle = '#33322c';
-  /* 树干 */
+  /* Trunk */
   ctx.fillStyle = '#b98d5f'; ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(tr.x-9, GROUND+2);
@@ -981,12 +1316,12 @@ function drawTree(tr, t){
   ctx.lineTo(tr.x+6+sway, GROUND-tr.h+16);
   ctx.quadraticCurveTo(tr.x+8+sway*.3, GROUND-tr.h*.5, tr.x+10, GROUND+2);
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  /* 树枝平台 */
+  /* branch platform */
   ctx.strokeStyle = '#33322c'; ctx.lineWidth = 4;
   doodleLine(tr.x-62, tr.branchY, tr.x+62, tr.branchY - 3, tr.seed+31, 4);
   ctx.strokeStyle = '#8a5a3b'; ctx.lineWidth = 2;
   doodleLine(tr.x-62, tr.branchY+4, tr.x+62, tr.branchY+1, tr.seed+33, 2);
-  /* 树冠（云朵形涂鸦） */
+  /* Canopy (cloud-shaped doodle) */
   ctx.fillStyle = '#a9c795'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
   cloudPath(tr.x + sway, GROUND - tr.h - 6, 1.05, tr.seed);
   ctx.fill(); ctx.stroke();
@@ -994,9 +1329,13 @@ function drawTree(tr, t){
   cloudPath(tr.x - 26 + sway, GROUND - tr.h + 8, .62, tr.seed+5); ctx.fill();
 }
 function drawHouse(t){
-  var cx = HOUSE.x, base = GROUND, w2 = HOUSE.w/2;
-  var playerIn = player && inHouse(player);
-  /* 茎（墙体） */
+  var hk0 = Math.floor((camX-340)/PERIOD), hk1 = Math.floor((camX+VIEW_W+340)/PERIOD);
+  for(var hk=hk0; hk<=hk1; hk++) drawOneHouse(HOUSE_OFFSET + hk*PERIOD, t);
+}
+function drawOneHouse(cx, t){
+  var base = GROUND, w2 = HOUSE.w/2;
+  var playerIn = player && Math.abs(player.x - cx) < HOUSE.w/2 - 26 && player.y > GROUND - 190;
+  /* Stem (walls) */
   ctx.fillStyle = playerIn ? 'rgba(255,248,225,.75)' : '#fff3d6';
   ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
   ctx.beginPath();
@@ -1005,18 +1344,18 @@ function drawHouse(t){
   ctx.quadraticCurveTo(cx, base-138, cx+w2-26, base-118);
   ctx.lineTo(cx+w2-26, base+2);
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  /* 巨型蘑菇伞盖 */
+  /* Giant mushroom cap */
   ctx.fillStyle = '#d9534a';
   ctx.beginPath();
   ctx.moveTo(cx-w2-24, base-112);
   ctx.quadraticCurveTo(cx, base-238 - Math.sin(t*1.4)*3, cx+w2+24, base-112);
   ctx.quadraticCurveTo(cx, base-84, cx-w2-24, base-112);
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  /* 伞盖白点 */
+  /* White spots on the cap */
   ctx.fillStyle = '#fff6e8';
   var spots = [[-70,-150,13],[-18,-182,16],[38,-158,12],[78,-132,9],[-44,-128,8]];
   for(var i=0;i<spots.length;i++){ doodleCircle(cx+spots[i][0], base+spots[i][1], spots[i][2], i*7); ctx.fill(); }
-  /* 门 + 窗 */
+  /* Door + window */
   ctx.fillStyle = '#8a5a3b'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(cx-24, base+2); ctx.lineTo(cx-24, base-58);
@@ -1026,31 +1365,122 @@ function drawHouse(t){
   ctx.fillStyle = '#ffeebb';
   ctx.fillRect(cx-72, base-92, 30, 26); ctx.strokeRect(cx-72, base-92, 30, 26);
   ctx.fillRect(cx+44, base-92, 30, 26); ctx.strokeRect(cx+44, base-92, 30, 26);
-  /* 招牌 */
+  /* Sign */
   ctx.fillStyle = '#fffdf4'; ctx.strokeStyle = '#33322c';
-  ctx.fillRect(cx-56, base-176, 112, 25); ctx.strokeRect(cx-56, base-176, 112, 25);
+  ctx.fillRect(cx-102, base-176, 204, 25); ctx.strokeRect(cx-102, base-176, 204, 25);
   ctx.fillStyle = '#33322c'; ctx.font = '700 15px "Comic Sans MS","PingFang SC",sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('🍄 蘑菇屋 · 躲雷', cx, base-158);
+  ctx.fillText('🍄 Mushroom House · Shelter', cx, base-158);
   ctx.textAlign = 'left';
   if(playerIn){
     ctx.fillStyle = 'rgba(93,155,106,.16)';
     ctx.fillRect(cx-w2+26, base-118, HOUSE.w-52, 120);
   }
 }
-function drawMushroom(m, t){
-  var bob = Math.sin(t*2.4 + m.id*1.7)*1.6;
+function drawBolete(m, t){
   var pop = Math.min(1, (performance.now()-m.born)/260);
   var s = m.s * (0.4 + 0.6*pop);
-  var x = m.x, y = m.y + (m.onBranch ? 0 : bob*0.3);
-  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-  /* 茎 */
+  var spraying = m.sprayT > 0;
+  var squash = spraying ? .55 : 1;                       /* squashed flat after being stomped */
+  var shake = spraying ? (rnd(m.id*7 + Math.floor(t*18))-.5)*3 : 0;
+  var ready = (touchingBolete === m);                    /* the player is touching it */
+  var x = m.x + shake, y = m.y;
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s*squash);
+  /* Thick stem (the bolete's signature: a chubby stem) */
+  ctx.fillStyle = '#eed9a8'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-9, 1); ctx.quadraticCurveTo(-11, -12, -6, -18);
+  ctx.lineTo(6, -18); ctx.quadraticCurveTo(11, -12, 9, 1);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* Net pattern on the stem */
+  ctx.strokeStyle = 'rgba(138,90,43,.55)'; ctx.lineWidth = 1.2;
+  doodleLine(-5, -4, 4, -6, m.id+8, 1.2);
+  doodleLine(-4, -10, 5, -12, m.id+9, 1.2);
+  /* Brownish-yellow pore surface under the cap */
+  ctx.fillStyle = '#c9a227'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.ellipse(0, -19, 16, 4.5, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  /* Brown cap */
+  ctx.fillStyle = m.cap;
+  ctx.beginPath();
+  ctx.moveTo(-18, -19);
+  ctx.quadraticCurveTo(0, -38, 18, -19);
+  ctx.quadraticCurveTo(0, -14, -18, -19);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,240,200,.35)';
+  doodleCircle(-6, -27, 4, m.id+4); ctx.fill();
+  ctx.restore();
+  if(ready && !spraying){
+    /* Ready-to-stomp hint: bouncing down arrow + ring */
+    var bounce = Math.abs(Math.sin(t*5))*5;
+    ctx.strokeStyle = '#b5892e'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(x, y-2, 24*s, 7*s, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#b5892e'; ctx.font = '700 15px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('👇 Click to stomp me!', x, y - 52*s - bounce);
+    ctx.textAlign = 'left';
+  }
+  if(pop < 1){
+    ctx.fillStyle = '#e3a008'; ctx.font = '13px sans-serif';
+    ctx.fillText('✦', x+14, y-34);
+  }
+}
+/* Fly agaric shape: white stem + bright red cap + white spots (origin at the base center, about 38px tall) */
+function agaricShape(seed){
   ctx.fillStyle = '#fff6e2'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(-6, 0); ctx.quadraticCurveTo(-7, -14, -4, -19);
   ctx.lineTo(4, -19); ctx.quadraticCurveTo(7, -14, 6, 0);
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  /* 伞 */
+  /* Ring */
+  ctx.lineWidth = 1.6;
+  doodleLine(-5, -11, 5, -11, seed+2, 1.6);
+  /* bright red cap */
+  ctx.fillStyle = '#e33224'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-18, -17);
+  ctx.quadraticCurveTo(0, -38, 18, -17);
+  ctx.quadraticCurveTo(0, -10, -18, -17);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* White spots (the fly agaric's signature) */
+  ctx.fillStyle = '#fff6e8';
+  doodleCircle(-8, -25, 3.2, seed); ctx.fill();
+  doodleCircle(2, -29, 2.6, seed+3); ctx.fill();
+  doodleCircle(9, -22, 2.8, seed+5); ctx.fill();
+  doodleCircle(-1, -20, 2, seed+7); ctx.fill();
+}
+function drawFlyAgaric(m, t){
+  var pop = Math.min(1, (performance.now()-m.born)/260);
+  var s = m.s * (0.4 + 0.6*pop);
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(Math.sin(t*2 + m.id)*0.06); ctx.scale(s, s);
+  agaricShape(m.id*3+1);
+  ctx.restore();
+  /* Danger sparkles */
+  ctx.fillStyle = '#e33224'; ctx.font = '13px sans-serif';
+  ctx.globalAlpha = .45 + .5*(.5 + .5*Math.sin(t*4 + m.id));
+  ctx.fillText('✦', m.x + 13, m.y - 36 + Math.sin(t*3)*2);
+  ctx.fillText('✦', m.x - 20, m.y - 26 + Math.cos(t*2.6)*2);
+  ctx.globalAlpha = 1;
+  /* Warning when the player gets close */
+  if(player && Math.abs(player.x - m.x) < 110 && Math.abs(player.y - m.y) < 60){
+    ctx.fillStyle = '#c0392b'; ctx.font = '700 14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('⚠️ Fly agaric — don’t touch!', m.x, m.y - 52);
+    ctx.textAlign = 'left';
+  }
+}
+function drawMushroom(m, t){
+  if(m.kind === 'bolete'){ drawBolete(m, t); return; }
+  if(m.kind === 'flyagaric'){ drawFlyAgaric(m, t); return; }
+  var bob = Math.sin(t*2.4 + m.id*1.7)*1.6;
+  var pop = Math.min(1, (performance.now()-m.born)/260);
+  var s = m.s * (0.4 + 0.6*pop);
+  var x = m.x, y = m.y + (m.onBranch ? 0 : bob*0.3);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  /* Stem */
+  ctx.fillStyle = '#fff6e2'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-6, 0); ctx.quadraticCurveTo(-7, -14, -4, -19);
+  ctx.lineTo(4, -19); ctx.quadraticCurveTo(7, -14, 6, 0);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* Cap */
   ctx.fillStyle = m.cap;
   ctx.beginPath();
   ctx.moveTo(-17, -17);
@@ -1061,7 +1491,7 @@ function drawMushroom(m, t){
   doodleCircle(-7, -24 + bob*.5, 3, m.id); ctx.fill();
   doodleCircle(6, -21 + bob*.5, 2.4, m.id+3); ctx.fill();
   ctx.restore();
-  /* 新长出的小星星 */
+  /* Sparkle on a freshly sprouted mushroom */
   if(pop < 1){
     ctx.fillStyle = '#e3a008'; ctx.font = '13px sans-serif';
     ctx.fillText('✦', x+12, y-30);
@@ -1070,6 +1500,7 @@ function drawMushroom(m, t){
 function drawActor(a, t){
   var d = a.def;
   var h = d.h, x = a.x, feetY = a.y;
+  if(a.stompT > 0) feetY += Math.sin((.35 - a.stompT)/.35 * Math.PI) * 8; /* Foot presses down when stomping a bolete */
   var walking = Math.abs(a.vx) > 4 && a.onGround;
   var legSwing = walking ? Math.sin(a.walkPh)*9 : 0;
   var climbSwing = a.climbing ? Math.sin(t*7)*7 : 0;
@@ -1077,11 +1508,19 @@ function drawActor(a, t){
   ctx.save();
   ctx.translate(x, 0);
   ctx.scale(a.face, 1);
-  /* 影子 */
+  /* Shadow */
   ctx.fillStyle = 'rgba(51,50,44,.14)';
   ctx.beginPath(); ctx.ellipse(0, GROUND+7, 20*(h/96), 5, 0, 0, Math.PI*2); ctx.fill();
+  /* Fly agaric hallucination: the player flips fully upside down (head down, feet up); squatting squashes the whole body */
+  if(a === player && a.halluT > 0){
+    var flipC = feetY - h/2;
+    ctx.translate(0, flipC*2); ctx.scale(1, -1);
+  }
+  if(a.squatT > 0){
+    ctx.translate(0, feetY); ctx.scale(1.14, .58); ctx.translate(0, -feetY);
+  }
   ctx.strokeStyle = '#33322c'; ctx.lineCap = 'round';
-  /* 腿 */
+  /* Legs */
   ctx.lineWidth = 4.5;
   if(a.climbing){
     doodleLine(0, feetY-h+52*(h/96), -10, feetY-16+climbSwing, a.key.length*3, 4.5);
@@ -1093,7 +1532,7 @@ function drawActor(a, t){
     doodleLine(0, feetY-h+52*(h/96), legSwing, feetY, 3, 4.5);
     doodleLine(0, feetY-h+52*(h/96), -legSwing, feetY, 5, 4.5);
   }
-  /* 身体 */
+  /* Body */
   var bodyTop = feetY - h + 26, bodyBot = feetY - h + 54*(h/96) + (h<80?8:0);
   if(d.style === 'dress'){
     ctx.fillStyle = d.shirt; ctx.lineWidth = 3;
@@ -1117,15 +1556,15 @@ function drawActor(a, t){
       ctx.lineTo(sx-6, sy-1.4); ctx.lineTo(sx-1.8, sy-1.8); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
   }
-  /* 背包（玩家画在身后侧，AI 也有小包） */
+  /* Backpack (drawn behind the player; AI has a small one too) */
   ctx.fillStyle = '#e3a008'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
   ctx.fillRect(-19, bodyTop+2, 10, 20*(h/96));
   ctx.strokeRect(-19, bodyTop+2, 10, 20*(h/96));
-  /* 手臂 / 捂脸 */
+  /* Arms / face-cover */
   ctx.lineWidth = 4.5; ctx.strokeStyle = '#33322c';
   var cover = a.faceCoverT > 0;
   if(cover){
-    /* 两只手捂住脸 + 惊叹 */
+    /* Both hands cover the face + exclamation */
     doodleLine(-11, bodyTop+8, -5, headY+6, 7, 4.5);
     doodleLine(11, bodyTop+8, 5, headY+6, 9, 4.5);
     ctx.fillStyle = d.skin; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
@@ -1141,10 +1580,10 @@ function drawActor(a, t){
     doodleLine(-11, bodyTop+8, -15, bodyTop+22+armSwing, 7, 4.5);
     doodleLine(11, bodyTop+8, 15, bodyTop+22-armSwing, 9, 4.5);
   }
-  /* 头 */
+  /* Head */
   ctx.fillStyle = d.skin; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
   doodleCircle(0, headY, 13*(h<80?0.95:1), a.key.length*11); ctx.fill();
-  /* 头发/帽子 */
+  /* Hair/hat */
   if(d.style === 'cap'){
     ctx.fillStyle = '#4a7fb5';
     ctx.beginPath(); ctx.arc(0, headY-3, 13.5, Math.PI, Math.PI*2); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -1158,34 +1597,34 @@ function drawActor(a, t){
   } else {
     ctx.fillStyle = '#222';
     ctx.beginPath(); ctx.arc(0, headY-4, 13, Math.PI, Math.PI*2); ctx.closePath(); ctx.fill(); ctx.stroke();
-    /* 黑框眼镜 */
+    /* Black-framed glasses */
     ctx.strokeStyle = '#222'; ctx.lineWidth = 2.2;
     doodleCircle(-5.5, headY+1, 5, 31); doodleCircle(6, headY+1, 5, 33);
     doodleLine(-.5, headY+1, .5, headY+1, 35, 2.2);
     ctx.strokeStyle = '#33322c';
   }
-  /* 眼睛嘴巴（没捂脸时） */
+  /* Eyes and mouth (when not covering the face) */
   if(!cover){
     ctx.fillStyle = '#33322c';
     ctx.beginPath(); ctx.arc(-4.5, headY, 1.7, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(5, headY, 1.7, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(0, headY+4.5, 4.4, .25*Math.PI, .8*Math.PI); ctx.stroke();
-    /* 腮红 */
+    /* Blush */
     ctx.fillStyle = 'rgba(217,83,74,.4)';
     ctx.beginPath(); ctx.arc(-9, headY+5, 2.8, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(9.5, headY+5, 2.8, 0, Math.PI*2); ctx.fill();
   } else {
-    /* 捂脸时从指缝笑：弯月嘴 */
+    /* Smiling through fingers while covering the face: crescent mouth */
     ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(0, headY+11, 3.6, .2*Math.PI, .85*Math.PI); ctx.stroke();
   }
   ctx.restore();
 
-  /* 名字 + 玩家标记 */
+  /* Name + player marker */
   ctx.font = '700 13px "Comic Sans MS","PingFang SC",sans-serif';
   ctx.textAlign = 'center';
-  var label = d.name + (a === player ? '（你）' : ' · AI伙伴');
+  var label = d.name + (a === player ? '(You)' : ' · AI partner') + ' 🎒×' + (a.pack || 0);
   var tw = ctx.measureText(label).width + 14;
   ctx.fillStyle = a === player ? '#ffd23e' : 'rgba(255,253,244,.9)';
   ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
@@ -1195,7 +1634,7 @@ function drawActor(a, t){
   ctx.fillText(label, x, ly + 1);
   ctx.textAlign = 'left';
 
-  /* 对话气泡 */
+  /* Speech bubble */
   if(a.bubbleT > 0 && a.bubble){
     ctx.font = '700 14px "Comic Sans MS","PingFang SC",sans-serif';
     var bw2 = ctx.measureText(a.bubble).width + 18;
@@ -1214,7 +1653,58 @@ function drawParticlesWorld(){
     ctx.fillStyle = p.color;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
   }
+  /* The bolete's brownish-yellow spore cloud */
+  for(var j=0;j<sporeParticles.length;j++){
+    var sp = sporeParticles[j];
+    ctx.globalAlpha = Math.max(0, Math.min(1, sp.life));
+    ctx.fillStyle = sp.color;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI*2); ctx.fill();
+  }
   ctx.globalAlpha = 1;
+}
+/* Giant fly agarics floating in the sky during a hallucination (they aren’t real) */
+function drawPhantoms(t){
+  for(var i=0;i<3;i++){
+    var px = camX + 170 + i*330 + Math.sin(t*.5 + i*2.1)*36;
+    var py = 120 + Math.sin(t*.9 + i*1.7)*26;
+    ctx.save();
+    ctx.globalAlpha = .20 + .09*Math.sin(t*1.6 + i*2);
+    ctx.translate(px, py); ctx.rotate(Math.sin(t*.7 + i)*0.1); ctx.scale(3.4, 3.4);
+    agaricShape(7 + i*13);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+/* Hallucination overlay (screen space): rainbow wash + a colorful downpour that isn't real + orbs + blinding flashes */
+function drawHalluFX(t){
+  var i;
+  var hue0 = Math.floor((t*60) % 360);
+  var grad = ctx.createLinearGradient(0, 0, VIEW_W, VIEW_H);
+  grad.addColorStop(0, 'hsla(' + hue0 + ',90%,60%,.10)');
+  grad.addColorStop(.5, 'hsla(' + ((hue0+120)%360) + ',90%,60%,.06)');
+  grad.addColorStop(1, 'hsla(' + ((hue0+240)%360) + ',90%,60%,.10)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  /* A huge downpour that isn't real: colorful rain streaks slanting down (the weather is actually fine) */
+  ctx.lineWidth = 2;
+  for(i=0;i<42;i++){
+    var rx = (rnd(i*17+3)*(VIEW_W+120) + t*60) % (VIEW_W+120) - 60;
+    var ry = (rnd(i*29+7)*VIEW_H + t*(430 + rnd(i*7)*260)) % (VIEW_H+40) - 20;
+    ctx.strokeStyle = 'hsla(' + ((i*43 + Math.floor(t*90)) % 360) + ',85%,55%,.5)';
+    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 7, ry + 22); ctx.stroke();
+  }
+  /* floating colorful orbs */
+  for(i=0;i<halluOrbs.length;i++){
+    var o = halluOrbs[i];
+    ctx.fillStyle = 'hsla(' + o.hue + ',95%,62%,.30)';
+    ctx.beginPath(); ctx.arc(o.x, o.y, o.r*1.9, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'hsla(' + o.hue + ',95%,68%,.75)';
+    ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(o.x - o.r*.3, o.y - o.r*.3, o.r*.28, 0, Math.PI*2); ctx.fill();
+  }
+  /* An occasional blinding flash */
+  var fl = Math.pow(Math.max(0, Math.sin(t*1.35 + 1.2)), 18);
+  if(fl > .02){ ctx.fillStyle = 'rgba(255,255,230,' + (fl*.55) + ')'; ctx.fillRect(0,0,VIEW_W,VIEW_H); }
 }
 function drawWeatherFX(w, t){
   var i;
@@ -1258,27 +1748,41 @@ function drawBolt(b){
   ctx.restore();
 }
 
-/* ================= HUD / 流程 ================= */
-var packSlotsEl = document.getElementById('packSlots');
-(function(){
-  var html = '';
-  for(var i=0;i<CAPACITY;i++) html += '<span class="slot" data-i="' + i + '"></span>';
-  packSlotsEl.innerHTML = html;
-})();
+/* ================= Top strip: which way the nearest mushroom house / volcano is ================= */
+var stripHouseEl = document.getElementById('stripHouse'), stripHouseLblEl = document.getElementById('stripHouseLbl');
+var stripVolcEl = document.getElementById('stripVolc'), stripVolcLblEl = document.getElementById('stripVolcLbl');
+function updateStrip(){
+  if(!player) return;
+  var hp = 50 + (houseCenterNear(player.x) - player.x) / PERIOD * 100;
+  var vp = 50 + (volcanoCenterNear(player.x) - player.x) / PERIOD * 100;
+  /* Labels are wide, so clamp them inside the strip where they stay readable; icons may ride closer to the edges */
+  var clampLbl = function(v){ return Math.max(11, Math.min(89, v)); };
+  if(stripHouseEl){ stripHouseEl.style.left = hp + '%'; stripHouseLblEl.style.left = clampLbl(hp) + '%'; }
+  if(stripVolcEl){ stripVolcEl.style.left = vp + '%'; stripVolcLblEl.style.left = clampLbl(vp) + '%'; }
+}
+
+/* ================= HUD / Flow ================= */
+var packFillEl = document.getElementById('packFill');
+var packBarEl = document.getElementById('packBar');
+var packBarTextEl = document.getElementById('packBarText');
 function updateHUD(){
-  document.getElementById('packNum').textContent = backpack;
-  var slots = packSlotsEl.children;
-  for(var i=0;i<slots.length;i++){
-    slots[i].textContent = i < backpack ? '🍄' : '';
-    slots[i].classList.toggle('full', i < backpack);
-  }
+  /* The top collection bar only counts mushrooms in the player's own backpack */
+  var mine = player ? (player.pack || 0) : 0;
+  document.getElementById('packNum').textContent = mine;
+  var pct = Math.round(mine / CAPACITY * 100);
+  if(packFillEl) packFillEl.style.width = pct + '%';
+  if(packBarTextEl) packBarTextEl.textContent = pct + '%';
+  if(packBarEl) packBarEl.setAttribute('aria-valuenow', mine);
   var w = curWx(), n = nextWx();
   document.getElementById('wxNow').textContent = w.icon + ' ' + w.name;
-  document.getElementById('wxNext').textContent = '下一个：' + n.icon + n.name;
+  document.getElementById('wxNext').textContent = 'Next: ' + n.icon + n.name;
 }
 function resetGame(){
-  backpack = 0; won = false; elapsed = 0; spawnTimer = 0;
-  mushrooms = []; particles = []; bolts = []; rainDrops = []; embers = [];
+  won = false; paused = false; elapsed = 0; spawnTimer = 0;   /* each actor's backpack resets to zero when actors are rebuilt */
+  document.getElementById('pauseOverlay').classList.add('hidden');
+  document.getElementById('pauseBtn').textContent = '⏸ Pause';
+  mushrooms = []; particles = []; sporeParticles = []; bolts = []; rainDrops = []; embers = []; halluOrbs = [];
+  touchingBolete = null;
   playerKey = selectedChar;
   actors = [
     makeActor('dad', 240), makeActor('mom', 320), makeActor('kid', 170)
@@ -1289,64 +1793,89 @@ function resetGame(){
   shuffleWx(); wxTimer = 0;
   setWeather(false);
   for(var s=0;s<6;s++) spawnMushroom();
+  spawnMushroom(560, 'bolete');   /* Guarantee a bolete nearby at the start so you can try stomping it */
+  spawnMushroom(1150, 'bolete');
+  spawnMushroom(880, 'flyagaric');   /* Guarantee a fly agaric nearby at the start; touching it causes a hallucination */
   updateHUD();
   document.getElementById('clock').textContent = '0:00';
 }
 function winGame(){
   won = true;
-  sndPick(); setTimeout(sndPick, 180); setTimeout(function(){ beep(880,.3,'triangle',.14,1320); }, 360);
+  sndWin();
   for(var i=0;i<5;i++){
     (function(k){ setTimeout(function(){ if(player) burst(player.x + (Math.random()-.5)*120, GROUND - 60 - Math.random()*60, ['#d9534a','#e3a008','#5d9b6a','#4a7fb5'][k%4]); }, k*140); })(i);
   }
-  var others = actors.filter(function(a){return a!==player;}).map(function(a){return a.def.name;}).join('、');
+  var others = actors.filter(function(a){return a!==player;}).map(function(a){return a.def.name + '’s backpack has ' + (a.pack||0) + ' ';}).join(', ');
   document.getElementById('winStats').innerHTML =
-    '你操控的' + player.def.name + '把背包装得满满的！<br>' +
-    '⏱️ 用时 ' + fmtTime(elapsed) + ' · ' + others + '也帮了大忙 ❤️<br>' +
-    '今晚可以煮一大锅蘑菇汤啦！🍲';
+    'You filled ' + player.def.name + '’s backpack right to the top!<br>' +
+    '⏱️ Time ' + fmtTime(elapsed) + ' · ' + others + ' — they were a big help too ❤️<br>' +
+    'Time to cook a big pot of mushroom soup tonight! 🍲';
   setTimeout(function(){ document.getElementById('winOverlay').classList.remove('hidden'); }, 650);
 }
 
-/* ================= 界面事件 ================= */
+/* ================= UI events ================= */
 var charCards = document.querySelectorAll('.char-card');
 charCards.forEach(function(card){
   card.addEventListener('click', function(){
+    sndClick();
     charCards.forEach(function(c){ c.classList.remove('sel'); });
     card.classList.add('sel');
     selectedChar = card.getAttribute('data-char');
   });
 });
 document.getElementById('startBtn').addEventListener('click', function(){
+  sndStart();
   document.getElementById('startOverlay').classList.add('hidden');
   started = true;
   startTime = performance.now();
   resetGame();
-  toast('出发！采满 ' + CAPACITY + ' 个蘑菇就赢啦 🍄', 2800);
+  toast('Let’s go! Collect  ' + CAPACITY + '  mushrooms to win! 🍄', 2800);
 });
 document.getElementById('againBtn').addEventListener('click', function(){
+  sndStart();
   document.getElementById('winOverlay').classList.add('hidden');
   won = false; started = true;
   startTime = performance.now();
   resetGame();
-  toast('新的一天，蘑菇又长出来啦！', 2400);
+  toast('A new day — the mushrooms have grown back!', 2400);
 });
 document.getElementById('restartBtn').addEventListener('click', function(){
+  sndClick();
   document.getElementById('winOverlay').classList.add('hidden');
   document.getElementById('startOverlay').classList.remove('hidden');
   started = false; won = false;
   resetGame();
 });
+/* ================= Pause ================= */
+function setPaused(v){
+  if(v && (!started || won)) return;   /* Don't pause before the game starts or after winning */
+  paused = v;
+  document.getElementById('pauseOverlay').classList.toggle('hidden', !paused);
+  document.getElementById('pauseBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+  if(paused) stopRainAmbience();       /* Rain sound stops too while paused */
+  else updateRainAmbience();
+}
+function togglePause(){ setPaused(!paused); }
+document.getElementById('pauseBtn').addEventListener('click', function(){ sndClick(); togglePause(); });
+document.getElementById('resumeBtn').addEventListener('click', function(){ sndClick(); setPaused(false); });
+/* Switching to another tab/App auto-pauses, so you don’t come back to a lightning-emptied backpack */
+document.addEventListener('visibilitychange', function(){ if(document.hidden) setPaused(true); });
+
 document.getElementById('soundBtn').addEventListener('click', function(){
   soundOn = !soundOn;
-  this.textContent = soundOn ? '🔊 声音开' : '🔇 声音关';
-  if(soundOn) sndPick();
+  this.textContent = soundOn ? '🔊 Sound on' : '🔇 Sound off';
+  if(soundOn){ sndPick(); updateRainAmbience(); }
+  else stopRainAmbience();
 });
 
-/* 初始画面（选角背景） */
+/* Initial screen (character-select backdrop) */
 playerKey = 'dad';
 actors = [ makeActor('dad', 240), makeActor('mom', 320), makeActor('kid', 170) ];
 player = actorByKey('dad');
 shuffleWx();
 for(var s0=0;s0<5;s0++) spawnMushroom();
+spawnMushroom(560, 'bolete');
+spawnMushroom(880, 'flyagaric');
 updateHUD();
 requestAnimationFrame(loop);
 })();

@@ -1,0 +1,1882 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>森林采蘑菇</title>
+<style>
+  :root{
+    --paper:#f8f3e4; --paper2:#fffdf4; --ink:#33322c; --ink-soft:#6b675a;
+    --page:#efe9d8; --card:#fffdf4; --line:#33322c;
+    --red:#d9534a; --orange:#e8862e; --green:#5d9b6a; --blue:#4a7fb5; --gold:#e3a008;
+    --btn:#fffdf4; --shadow:2px 3px 0 rgba(51,50,44,.85);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#26241e; --paper2:#2f2c24; --ink:#f0ead6; --ink-soft:#b8b09a;
+      --page:#1b1a16; --card:#2f2c24; --line:#e8e2cf;
+      --btn:#35322a; --shadow:2px 3px 0 rgba(0,0,0,.7);
+    }
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--page);
+    background-image:radial-gradient(rgba(51,50,44,.05) 1px, transparent 1px);
+    background-size:22px 22px;
+    color:var(--ink);
+    font-family:"Comic Sans MS","Chalkboard SE","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{ max-width:1060px; margin:0 auto; padding:14px 14px 40px; }
+  h1{ font-size:clamp(26px,5vw,38px); margin:6px 0 2px; letter-spacing:1px; }
+  .sub{ color:var(--ink-soft); margin:0 0 12px; font-size:15px; line-height:1.6; }
+  /* HUD */
+  .hud{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:stretch; margin-bottom:10px;
+  }
+  .hud-box{
+    background:var(--card); border:2.5px solid var(--line); border-radius:14px 18px 15px 20px;
+    box-shadow:var(--shadow); padding:8px 12px; display:flex; align-items:center; gap:10px; min-height:52px;
+  }
+  .hud-box .label{ font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+  .pack-box{ flex:1 1 340px; min-width:min(100%,280px); }
+  .pack-bar{
+    position:relative; flex:1; min-width:110px; height:24px; border:2px solid var(--line);
+    border-radius:999px; background:var(--paper); overflow:hidden;
+  }
+  .pack-fill{
+    height:100%; width:0%; background:#5d9b6a;
+    background-image:repeating-linear-gradient(-45deg, rgba(255,255,255,.18) 0 8px, transparent 8px 16px);
+    transition:width .35s ease;
+  }
+  .pack-bar-text{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; line-height:1; pointer-events:none;
+  }
+  .pack-num{ font-size:20px; font-weight:700; white-space:nowrap; }
+  .wx-now{ font-size:19px; font-weight:700; white-space:nowrap; }
+  .wx-next{ font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+  .safe-badge{ font-weight:700; color:var(--green); display:none; }
+  .safe-badge.on{ display:inline; }
+  .hud-spacer{ flex:1; }
+  .icon-btn{
+    background:var(--btn); border:2.5px solid var(--line); border-radius:12px 15px 13px 16px;
+    box-shadow:var(--shadow); color:var(--ink); font:inherit; font-size:15px; font-weight:700;
+    padding:8px 14px; cursor:pointer; min-height:44px;
+  }
+  .icon-btn:active{ transform:translate(1px,2px); box-shadow:1px 1px 0 rgba(0,0,0,.6); }
+  /* world strip */
+  .strip{
+    position:relative; height:26px; background:var(--card); border:2.5px solid var(--line);
+    border-radius:12px; margin-bottom:10px; overflow:hidden;
+  }
+  .strip .mark{ position:absolute; top:50%; transform:translate(-50%,-50%); font-size:14px; line-height:1; }
+  .strip .dot{
+    position:absolute; top:50%; width:13px; height:13px; border-radius:50%;
+    border:2px solid var(--line); transform:translate(-50%,-50%); background:var(--red); z-index:2;
+  }
+  .strip .lbl{ position:absolute; top:2px; transform:translateX(-50%); font-size:10px; color:var(--ink-soft); }
+  /* stage */
+  .stage{
+    position:relative; border:3px solid var(--line); border-radius:18px 22px 20px 24px;
+    overflow:hidden; box-shadow:4px 5px 0 rgba(51,50,44,.35); background:#f8f3e4;
+  }
+  canvas#game{ display:block; width:100%; height:auto; touch-action:none; }
+  .toast{
+    position:absolute; left:50%; top:14px; transform:translateX(-50%) rotate(-1deg);
+    background:#fffdf4; color:#33322c; border:2.5px solid #33322c; border-radius:12px 16px 13px 17px;
+    box-shadow:2px 3px 0 rgba(51,50,44,.8); padding:8px 16px; font-size:16px; font-weight:700;
+    opacity:0; pointer-events:none; transition:opacity .25s; max-width:92%; text-align:center; z-index:5;
+  }
+  .toast.show{ opacity:1; }
+  .overlay{
+    position:absolute; inset:0; background:rgba(248,243,228,.93); z-index:6;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:18px; text-align:center; overflow:auto;
+  }
+  .overlay.panel{
+    position:static; background:var(--card); color:var(--ink);
+    border:3px solid var(--line); border-radius:18px 22px 20px 24px;
+    box-shadow:4px 5px 0 rgba(51,50,44,.35); margin-bottom:12px; overflow:visible;
+  }
+  .overlay.panel p{ color:var(--ink-soft); }
+  #winOverlay{ padding:10px 14px; }
+  #winOverlay h2{ font-size:clamp(19px,4vw,28px); }
+  #winOverlay .win-stats{ font-size:14.5px; line-height:1.7; margin-bottom:10px; }
+  #winOverlay .big-btn{ padding:9px 26px; font-size:18px; min-height:46px; }
+  .overlay h2{ margin:0 0 4px; font-size:clamp(22px,4.5vw,32px); }
+  .overlay p{ margin:4px 0 12px; color:#6b675a; line-height:1.6; font-size:15px; }
+  .char-row{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:8px 0 16px; }
+  .char-card{
+    width:150px; background:#fffdf4; border:3px solid #33322c; border-radius:16px 20px 17px 21px;
+    box-shadow:2px 3px 0 rgba(51,50,44,.85); padding:12px 10px 10px; cursor:pointer; font:inherit; color:#33322c;
+    min-height:44px;
+  }
+  .char-card svg{ display:block; margin:0 auto 4px; }
+  .char-card .nm{ font-size:19px; font-weight:700; }
+  .char-card .ds{ font-size:12.5px; color:#6b675a; line-height:1.5; margin-top:2px; }
+  .char-card.sel{ outline:4px solid var(--gold); background:#fff6da; transform:rotate(-1deg); }
+  .big-btn{
+    background:var(--red); color:#fff; border:3px solid #33322c; border-radius:14px 18px 15px 19px;
+    box-shadow:3px 4px 0 rgba(51,50,44,.85); font:inherit; font-size:20px; font-weight:700;
+    padding:12px 34px; cursor:pointer; min-height:52px; letter-spacing:2px;
+  }
+  .big-btn:active{ transform:translate(2px,3px); box-shadow:1px 1px 0 rgba(0,0,0,.6); }
+  .big-btn.green{ background:var(--green); }
+  .hidden{ display:none !important; }
+  .win-stats{ font-size:16px; line-height:1.9; margin-bottom:14px; }
+  /* touch controls */
+  .controls{
+    display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:10px; margin-top:12px;
+    user-select:none; -webkit-user-select:none;
+  }
+  .ctl-group{ display:flex; flex-wrap:nowrap; gap:10px; align-items:flex-end; }
+  .ctl-col{ display:flex; flex-direction:column; gap:10px; }
+  .ctl{
+    width:64px; height:64px; border-radius:50% 46% 52% 48%;
+    background:var(--btn); border:3px solid var(--line); box-shadow:var(--shadow);
+    font-size:26px; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-family:inherit; touch-action:none;
+  }
+  .ctl small{ font-size:11px; display:block; }
+  .ctl:active,.ctl.held{ background:#ffe9c9; transform:translate(1px,2px); }
+  .ctl.pick{ width:76px; height:76px; background:#ffe1a8; font-size:15px; font-weight:700; flex-direction:column; line-height:1.15; }
+  .ctl.climb{ font-size:20px; }
+  @media (max-width:560px){
+    .ctl{ width:52px; height:52px; font-size:21px; }
+    .ctl.pick{ width:62px; height:62px; }
+    .ctl-group{ gap:8px; } .ctl-col{ gap:8px; }
+    .pack-box{ min-width:0; }
+    .pack-bar{ min-width:80px; }
+    .char-card{ width:104px; padding:8px 6px 8px; }
+    .char-card svg{ width:54px; height:78px; }
+    .char-card .nm{ font-size:16px; }
+    .char-card .ds{ font-size:11px; }
+    .char-row{ gap:8px; }
+    .overlay.panel{ padding:14px 10px; }
+  }
+  /* info sections */
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:22px; }
+  @media (max-width:720px){ .cols{ grid-template-columns:1fr; } }
+  .card{
+    background:var(--card); border:2.5px solid var(--line); border-radius:16px 20px 17px 21px;
+    box-shadow:var(--shadow); padding:16px 18px;
+  }
+  .card h3{ margin:0 0 10px; font-size:19px; }
+  .card ul{ margin:0; padding-left:20px; line-height:1.85; font-size:14.5px; }
+  .card p{ line-height:1.75; font-size:14.5px; margin:6px 0; }
+  kbd{
+    background:var(--paper); border:2px solid var(--line); border-bottom-width:3.5px; border-radius:6px;
+    padding:0 6px; font-family:inherit; font-size:13px; white-space:nowrap;
+  }
+  .wx-list{ list-style:none; padding:0 !important; }
+  .wx-list li{ display:flex; gap:8px; align-items:baseline; }
+  .wx-list .tag{
+    flex:none; min-width:64px; text-align:center; border:2px solid var(--line); border-radius:9px;
+    padding:1px 6px; font-weight:700; font-size:13px; background:var(--paper);
+  }
+  .wx-list .hot{ color:var(--red); font-weight:700; }
+  footer{ margin-top:20px; color:var(--ink-soft); font-size:13px; text-align:center; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍄 森林采蘑菇</h1>
+  <p class="sub">一家三口进森林啦！这片森林<b>没有尽头</b>——一直往左或往右走，林子永远走不完，蘑菇屋和火山会一路不断出现。爬上大树，把蘑菇采满背包（100 个）就赢了。<b>普通蘑菇碰到就自动进背包</b>；林子里还有胖胖的<b>牛肝菌</b>——碰到它之后<b>点一下鼠标踩它一脚</b>，它就会喷出黄褐色的孢子！下雨天蘑菇冒得更多；打雷时快躲进巨型蘑菇屋，不然闪电会烧毁蘑菇、清空背包！林子里还有红伞盖、白点点的<b>毒蝇伞</b>——碰到它会<b>产生幻觉</b>：走路倒过来、按键方向全反，还会看见不存在的东西！</p>
+
+  <div class="hud">
+    <div class="hud-box pack-box">
+      <span class="label">🎒 你的背包</span>
+      <div class="pack-bar" id="packBar" role="progressbar" aria-label="蘑菇收集进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="pack-fill" id="packFill"></div>
+        <span class="pack-bar-text" id="packBarText">0%</span>
+      </div>
+      <span class="pack-num">🍄 <span id="packNum">0</span>/100</span>
+    </div>
+    <div class="hud-box">
+      <span class="label">天气</span>
+      <span class="wx-now" id="wxNow">☀️ 晴天</span>
+      <span class="wx-next" id="wxNext"></span>
+      <span class="safe-badge" id="safeBadge">🏠 屋内安全</span>
+      <span class="safe-badge" id="halluBadge" style="color:#c0392b;">🌀 幻觉中</span>
+    </div>
+    <div class="hud-spacer"></div>
+    <div class="hud-box">
+      <span class="label">用时</span><span class="pack-num" id="clock">0:00</span>
+    </div>
+    <button class="icon-btn" id="pauseBtn" type="button">⏸ 暂停</button>
+    <button class="icon-btn" id="soundBtn" type="button">🔊 声音开</button>
+    <button class="icon-btn" id="restartBtn" type="button">↺ 重新开始</button>
+  </div>
+
+  <div class="strip" aria-hidden="true">
+    <span class="mark" style="left:3%">🌲</span>
+    <span class="mark" style="left:97%">🌲</span>
+    <span class="mark" id="stripHouse" style="left:68%">🍄</span><span class="lbl" id="stripHouseLbl" style="left:68%">最近的蘑菇屋</span>
+    <span class="mark" id="stripVolc" style="left:94%">🌋</span><span class="lbl" id="stripVolcLbl" style="left:94%">火山</span>
+    <span class="lbl" style="left:50%">你</span>
+    <span class="dot" id="stripDot" style="left:50%"></span>
+  </div>
+
+    <div class="overlay panel" id="startOverlay">
+      <h2>选一个角色出发！</h2>
+      <p>另外两位家人会变成 AI 伙伴，在林子里帮你一起找蘑菇。<br>每个人都有自己的背包——把<b>你自己的背包</b>采满 100 个蘑菇，就胜利啦。<br>这片森林没有尽头，往哪个方向走都走不到边。<br>小心红伞白点的<b>毒蝇伞</b>：碰到会产生幻觉，走路倒过来、方向全反！</p>
+      <div class="char-row">
+        <button class="char-card sel" type="button" data-char="dad">
+          <svg width="72" height="104" viewBox="0 0 72 104" aria-hidden="true">
+            <circle cx="36" cy="18" r="13" fill="#ffe3c2" stroke="#33322c" stroke-width="3"/>
+            <path d="M23 14 Q36 2 49 14 L49 10 Q36 0 23 10 Z" fill="#4a7fb5" stroke="#33322c" stroke-width="3"/>
+            <path d="M36 31 L36 62" stroke="#33322c" stroke-width="4"/>
+            <path d="M36 40 L18 54 M36 40 L54 54" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
+            <path d="M36 62 L24 98 M36 62 L48 98" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
+            <rect x="24" y="34" width="24" height="26" rx="6" fill="#4a7fb5" stroke="#33322c" stroke-width="3"/>
+            <path d="M50 44 l12 5 -3 16 -11 -4 z" fill="#e3a008" stroke="#33322c" stroke-width="3"/>
+          </svg>
+          <div class="nm">👨 爸爸</div>
+          <div class="ds">个子最高，背着大背包<br>专属特性 · 后续拓展</div>
+        </button>
+        <button class="char-card" type="button" data-char="mom">
+          <svg width="72" height="104" viewBox="0 0 72 104" aria-hidden="true">
+            <circle cx="36" cy="18" r="13" fill="#ffe3c2" stroke="#33322c" stroke-width="3"/>
+            <path d="M24 10 Q36 -2 48 10 Q52 24 47 30 Q50 14 36 12 Q22 14 25 30 Q20 24 24 10Z" fill="#8a5a3b" stroke="#33322c" stroke-width="2.5"/>
+            <path d="M52 8 q10 14 3 26" fill="none" stroke="#8a5a3b" stroke-width="6" stroke-linecap="round"/>
+            <path d="M36 31 L36 56" stroke="#33322c" stroke-width="4"/>
+            <path d="M36 40 L18 52 M36 40 L54 52" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
+            <path d="M22 78 L36 44 L50 78 Z" fill="#d9534a" stroke="#33322c" stroke-width="3"/>
+            <path d="M30 78 L26 98 M42 78 L46 98" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
+            <path d="M50 42 l12 5 -3 16 -11 -4 z" fill="#e3a008" stroke="#33322c" stroke-width="3"/>
+          </svg>
+          <div class="nm">👩 妈妈</div>
+          <div class="ds">眼睛最尖，找蘑菇高手<br>专属特性 · 后续拓展</div>
+        </button>
+        <button class="char-card" type="button" data-char="kid">
+          <svg width="72" height="104" viewBox="0 0 72 104" aria-hidden="true">
+            <circle cx="36" cy="24" r="13" fill="#ffe3c2" stroke="#33322c" stroke-width="3"/>
+            <path d="M23 20 Q24 8 37 9 Q49 9 49 20 Q44 13 36 13 Q28 13 23 20Z" fill="#222" stroke="#33322c" stroke-width="2.5"/>
+            <circle cx="30" cy="25" r="5.5" fill="none" stroke="#222" stroke-width="2.5"/>
+            <circle cx="43" cy="25" r="5.5" fill="none" stroke="#222" stroke-width="2.5"/>
+            <path d="M36 37 L36 62" stroke="#33322c" stroke-width="4"/>
+            <path d="M36 44 L20 56 M36 44 L52 56" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
+            <rect x="25" y="40" width="22" height="22" rx="6" fill="#e8862e" stroke="#33322c" stroke-width="3"/>
+            <path d="M36 45 l2.2 4.4 4.8 .7 -3.5 3.4 .8 4.8 -4.3-2.3 -4.3 2.3 .8-4.8 -3.5-3.4 4.8-.7z" fill="#ffd23e" stroke="#33322c" stroke-width="1.4"/>
+            <path d="M36 62 L28 94 M36 62 L44 94" stroke="#33322c" stroke-width="4" stroke-linecap="round"/>
+            <path d="M50 46 l11 4 -2.5 14 -10 -3.5 z" fill="#e3a008" stroke="#33322c" stroke-width="3"/>
+          </svg>
+          <div class="nm">🧒 孩子</div>
+          <div class="ds">个子小小，钻来钻去<br>专属特性 · 后续拓展</div>
+        </button>
+      </div>
+      <button class="big-btn" id="startBtn" type="button">进森林！</button>
+      <p style="margin-top:12px;font-size:13px;">键盘：<kbd>←</kbd><kbd>→</kbd> 或 <kbd>A</kbd><kbd>D</kbd> 移动 · <kbd>空格</kbd> 跳 · 靠近树按 <kbd>W</kbd>/<kbd>S</kbd> 爬树<br>碰到普通蘑菇就自动采进背包；碰到牛肝菌后<b>点一下鼠标</b>（或点一下画面）踩它一脚，看它喷孢子！<br>手机/平板：用下方的大按钮也可以玩。<br>想休息时点右上角「⏸ 暂停」（或按 <kbd>P</kbd>），游戏会停住等你回来。</p>
+    </div>
+
+
+  <div class="stage">
+    <canvas id="game" width="960" height="600"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <div class="overlay hidden" id="pauseOverlay">
+      <h2>⏸ 休息一下</h2>
+      <p>游戏暂停啦——蘑菇、天气和闪电都在原地等你，背包里的蘑菇一个都不会少。</p>
+      <button class="big-btn green" id="resumeBtn" type="button">继续游戏</button>
+      <p style="margin-top:12px;font-size:13px;">按 <kbd>P</kbd> 键也可以继续。</p>
+    </div>
+
+    <div class="overlay hidden" id="winOverlay">
+      <h2>🎉 背包装满啦，你赢了！</h2>
+      <div class="win-stats" id="winStats"></div>
+      <button class="big-btn green" id="againBtn" type="button">再玩一次</button>
+    </div>
+  </div>
+
+  <div class="controls" aria-label="触屏控制">
+    <div class="ctl-group">
+      <button class="ctl" id="btnLeft" type="button" aria-label="向左">◀</button>
+      <button class="ctl" id="btnRight" type="button" aria-label="向右">▶</button>
+    </div>
+    <div class="ctl-group">
+      <div class="ctl-col">
+        <button class="ctl climb" id="btnUp" type="button" aria-label="爬上树">🌳▲</button>
+        <button class="ctl climb" id="btnDown" type="button" aria-label="爬下树">▼</button>
+      </div>
+      <button class="ctl" id="btnJump" type="button" aria-label="跳跃">⬆<small></small></button>
+      <button class="ctl pick" id="btnPick" type="button" aria-label="踩牛肝菌">🦶<span>踩一脚</span></button>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h3>🎮 怎么玩</h3>
+      <ul>
+        <li>在森林里走动、跳跃、爬树，寻找冒出来的蘑菇。</li>
+        <li>发现蘑菇时，角色会开心地<b>捂脸惊呼</b>——不用按键，<b>走过去碰到蘑菇，它就自动收进背包</b>。</li>
+        <li>林子里还有<b>牛肝菌</b>：菌柄粗粗的、菌盖棕棕的，它不进背包。碰到它之后，<b>点一下鼠标（或点一下画面、点「踩一脚」）</b>，主角就会踩它一脚——牛肝菌立刻<b>喷出黄褐色的孢子</b>，喷完就瘪下去啦。</li>
+        <li>林子里还有<b>毒蝇伞</b>：红伞盖、白点点，长得最漂亮，却最危险！<b>碰到它就会产生幻觉（约 15 秒）</b>：整个人<b>倒过来走路</b>，按键方向<b>全部反过来</b>（按左往右走、按上往下、想跳跃却会蹲下），还会看见<b>不存在的东西</b>——刺眼的强光、彩色的大暴雨、天上飘着的巨大蘑菇，整个世界都扭来扭去。别慌，等幻觉过去就恢复正常啦。AI 伙伴很聪明，从不碰它。</li>
+        <li>收集条一共能装 <b>100 个蘑菇</b>，每采到一个就往前涨一点，<b>涨满 100 就胜利</b>。</li>
+        <li>另外两位家人是 AI 伙伴：他们会自己找蘑菇、捂脸惊呼，还会喊你「这里有蘑菇！」。<b>每个人都有自己的背包</b>：伙伴采到的进他们自己的背包（名字牌上的 🎒 数字就是他们的数量），<b>只有你亲手采到的，才会进你的背包、让收集条上涨</b>。</li>
+        <li>森林<b>没有边界</b>：一直往左或往右走，<b>巨型蘑菇屋</b>和火山会一间间、一座座地不断出现——打雷时走进最近的蘑菇屋就能躲雷。屏幕上方的条带会告诉你最近的蘑菇屋和火山在哪个方向。</li>
+        <li>游戏里到处都是<b>声音</b>：走路的哒哒声、落地声、下雨的沙沙声、好天气里的鸟叫、蘑菇冒头的「啵」……竖起耳朵听——<b>闪电落下之前，会先传来一声低低的闷响</b>，听到就赶紧往蘑菇屋跑！右上角的「声音」按钮可以开关所有音效。</li>
+        <li>想休息一下？点右上角的<b>「⏸ 暂停」</b>（或按 <kbd>P</kbd> 键）：游戏立刻停住，蘑菇、天气、闪电都不动，背包也不会丢；切到别的页面时还会<b>自动暂停</b>。点「继续游戏」就接着玩。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🌦️ 天气小抄</h3>
+      <ul class="wx-list">
+        <li><span class="tag">☀️ 晴天</span><span>蘑菇慢慢长，安心采。</span></li>
+        <li><span class="tag">⛅ 多云</span><span>暂无特殊效果（MVP）。</span></li>
+        <li><span class="tag">☁️ 阴天</span><span>暂无特殊效果（MVP）。</span></li>
+        <li><span class="tag">🌦️ 小雨</span><span class="hot">蘑菇变多，长得更快！</span></li>
+        <li><span class="tag">🌧️ 暴雨</span><span class="hot">蘑菇冒得更多，抓紧采！</span></li>
+        <li><span class="tag">🌋 火雨</span><span>火山喷出火星雨，暂无特殊效果（MVP）。</span></li>
+        <li><span class="tag">⛈️ 雷电</span><span class="hot">闪电会烧毁地上的蘑菇，还会清空背包！听到雷声快进蘑菇屋躲好。</span></li>
+      </ul>
+      <p>天气会自己轮换，屏幕上方能看到现在和下一个天气。</p>
+    </div>
+  </div>
+
+  <footer>森林采蘑菇 · MVP 版 — 爸爸、妈妈、孩子的专属特性将在后续版本拓展。</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ================= 基础 ================= */
+var canvas = document.getElementById('game');
+var ctx = canvas.getContext('2d');
+var VIEW_W = 960, VIEW_H = 600;
+var PERIOD = 2600, GROUND = 492;   /* 无限世界：每 2600px 为一段，景物按段无限生成，没有左右边界 */
+var CAPACITY = 100;
+
+function fitCanvas(){
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cw = canvas.clientWidth || 960;
+  VIEW_W = cw < 560 ? 600 : 960;   /* 手机上放大视野，角色更大更好点 */
+  canvas.width = VIEW_W * dpr; canvas.height = VIEW_H * dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
+window.addEventListener('load', fitCanvas);
+
+/* 确定性伪随机（涂鸦抖动用） */
+function rnd(seed){ var x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+/* 涂鸦线条：带轻微手抖的分段线 */
+function doodleLine(x1,y1,x2,y2,seed,w){
+  ctx.lineWidth = w || 2.5;
+  ctx.beginPath();
+  var n = 3, i, px, py;
+  ctx.moveTo(x1 + (rnd(seed)-.5)*2, y1 + (rnd(seed+9)-.5)*2);
+  for(i=1;i<=n;i++){
+    px = x1 + (x2-x1)*i/n + (rnd(seed+i*3)-.5)*3;
+    py = y1 + (y2-y1)*i/n + (rnd(seed+i*7)-.5)*3;
+    ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+}
+function doodleCircle(cx,cy,r,seed){
+  ctx.beginPath();
+  var steps = 14, i, a, rr, px, py;
+  for(i=0;i<=steps;i++){
+    a = i/steps * Math.PI*2;
+    rr = r + (rnd(seed+i*5)-.5)*4;
+    px = cx + Math.cos(a)*rr; py = cy + Math.sin(a)*rr*0.92;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+}
+function cloudPath(cx,cy,s,seed){
+  ctx.beginPath();
+  var bumps = [[-52,8,26],[-26,-8,32],[4,-14,36],[34,-4,28],[52,10,20]];
+  var i,b;
+  ctx.moveTo(cx-72*s, cy+14*s);
+  for(i=0;i<bumps.length;i++){
+    b = bumps[i];
+    ctx.arc(cx+b[0]*s+(rnd(seed+i)-.5)*4, cy+b[1]*s, b[2]*s, Math.PI*0.95, Math.PI*1.95);
+  }
+  ctx.lineTo(cx+72*s, cy+14*s);
+  ctx.closePath();
+}
+
+/* ================= 角色定义 ================= */
+var CHARS = {
+  dad:{ key:'dad', name:'爸爸', h:96, shirt:'#4a7fb5', skin:'#ffe3c2', hair:'#3a3a36', style:'cap' },
+  mom:{ key:'mom', name:'妈妈', h:88, shirt:'#d9534a', skin:'#ffe3c2', hair:'#8a5a3b', style:'dress' },
+  kid:{ key:'kid', name:'孩子', h:64, shirt:'#e8862e', skin:'#ffe3c2', hair:'#222222', style:'kid' }
+};
+var selectedChar = 'dad';
+var playerKey = 'dad';
+
+/* ================= 世界静态物 ================= */
+var TREE_OFFSETS = [180, 430, 700, 980, 1240, 1520, 2050, 2300];
+var HOUSE_OFFSET = 1745, VOLCANO_OFFSET = 2470;
+var HOUSE = { w: 230, capY: GROUND - 196 };   /* 巨型蘑菇屋尺寸；位置按段算：houseCenterNear() */
+function houseCenterNear(x){ return HOUSE_OFFSET + Math.round((x - HOUSE_OFFSET) / PERIOD) * PERIOD; }
+function volcanoCenterNear(x){ return VOLCANO_OFFSET + Math.round((x - VOLCANO_OFFSET) / PERIOD) * PERIOD; }
+var trees = [], grassTufts = [], flowers = [], stones = [];
+var worldWinMin = null, worldWinMax = null;
+/* 按需生成玩家周围一段的树/草/花/石：走到哪儿生成到哪儿，两边都无限延伸 */
+function buildWorldWindow(cx){
+  var min = cx - 1800, max = cx + 1800;
+  if(worldWinMin !== null && min >= worldWinMin && max <= worldWinMax) return;
+  worldWinMin = min - 700; worldWinMax = max + 700;
+  var lo = worldWinMin, hi = worldWinMax, k, i, gx;
+  trees = []; grassTufts = []; flowers = []; stones = [];
+  var k0 = Math.floor(lo / PERIOD), k1 = Math.floor(hi / PERIOD);
+  for(k=k0;k<=k1;k++){
+    for(i=0;i<TREE_OFFSETS.length;i++){
+      var gi = k * TREE_OFFSETS.length + i;
+      trees.push({ x: k*PERIOD + TREE_OFFSETS[i], h: 230 + rnd(gi*13+3)*70, seed: gi*7+3, branchY: GROUND - 128 - rnd(gi*29+11)*26 });
+    }
+  }
+  var g1 = Math.ceil(hi/37);
+  for(gx=Math.floor(lo/37); gx<=g1; gx++) grassTufts.push({ x: gx*37 + rnd(gx*3+1)*22, s: .7+rnd(gx*7)*.7, seed: gx });
+  var f1 = Math.ceil(hi/100);
+  for(gx=Math.floor(lo/100); gx<=f1; gx++) flowers.push({ x: gx*100 + rnd(gx*11+5)*60, c:['#d9534a','#e3a008','#4a7fb5','#c86bb8'][((gx%4)+4)%4], seed: gx*3 });
+  var s1 = Math.ceil(hi/163);
+  for(gx=Math.floor(lo/163); gx<=s1; gx++) stones.push({ x: gx*163 + rnd(gx*17+2)*90, r: 6+rnd(gx*5)*9, seed: gx*9 });
+}
+buildWorldWindow(300);
+var bgClouds = [];
+(function(){
+  for(var i=0;i<9;i++) bgClouds.push({ x: rnd(i*31)*2600, y: 40+rnd(i*13)*110, s: .7+rnd(i*7)*.8, seed:i*17, v: 4+rnd(i*3)*5 });
+})();
+
+/* ================= 天气 ================= */
+var WEATHERS = [
+  { id:'sunny',    name:'晴天', icon:'☀️', sky:'#fdf6da', far:'#f3ead0', spawnMs:3000, max:7 },
+  { id:'cloudy',   name:'多云', icon:'⛅', sky:'#f7f1dc', far:'#eee4c8', spawnMs:3000, max:7 },
+  { id:'overcast', name:'阴天', icon:'☁️', sky:'#e9e6da', far:'#ddd8c6', spawnMs:3000, max:7 },
+  { id:'drizzle',  name:'小雨', icon:'🌦️', sky:'#e6ecdf', far:'#d5ddc9', spawnMs:1300, max:12 },
+  { id:'storm',    name:'暴雨', icon:'🌧️', sky:'#dde4dd', far:'#c9d2c6', spawnMs:900,  max:15 },
+  { id:'firerain', name:'火雨', icon:'🌋', sky:'#fbeed7', far:'#f2ddba', spawnMs:3000, max:7 },
+  { id:'thunder',  name:'雷电', icon:'⛈️', sky:'#dcdce4', far:'#c6c6d2', spawnMs:3000, max:7 }
+];
+var wxOrder = [], wxIdx = 0, wxTimer = 0, wxDur = 20000;
+function shuffleWx(){
+  wxOrder = WEATHERS.slice();
+  for(var i=wxOrder.length-1;i>0;i--){ var j = Math.floor(Math.random()*(i+1)); var t=wxOrder[i]; wxOrder[i]=wxOrder[j]; wxOrder[j]=t; }
+  /* 开局先给个晴天，手感友好 */
+  var si = wxOrder.findIndex(function(w){return w.id==='sunny';});
+  var tmp = wxOrder[0]; wxOrder[0]=wxOrder[si]; wxOrder[si]=tmp;
+  wxIdx = 0;
+}
+function curWx(){ return wxOrder[wxIdx % wxOrder.length]; }
+function nextWx(){ return wxOrder[(wxIdx+1) % wxOrder.length]; }
+function isRain(){ var id = curWx().id; return id==='drizzle' || id==='storm'; }
+
+/* ================= 实体 ================= */
+function makeActor(key, x){
+  var c = CHARS[key];
+  return {
+    key:key, def:c, x:x, y:GROUND, vx:0, vy:0, face:1,
+    onGround:true, climbing:false, climbTree:null,
+    walkPh:0, faceCoverT:0, bubble:'', bubbleT:0, stompT:0, pack:0,
+    halluT:0, squatT:0,
+    ai: key!==playerKey, aiTarget:null, aiWait:0, aiPickCd:0, aiDir:1, aiThink:0
+  };
+}
+var actors = [], player = null;
+var mushrooms = [], mushSeq = 1, spawnTimer = 0;
+var particles = [], sporeParticles = [], rainDrops = [], embers = [], bolts = [];
+var halluOrbs = [];   /* 幻觉中飘浮的彩色光球（并不存在） */
+var touchingBolete = null;   /* 主角正碰到的牛肝菌（点鼠标就能踩） */
+var started = false, won = false, paused = false, startTime = 0, elapsed = 0;
+var camX = 0, flashT = 0, warnT = 0, strikeTimer = 3.2, shakeT = 0, wasInHouse = false;
+var toastMsg = '', toastUntil = 0;
+
+function actorByKey(k){ for(var i=0;i<actors.length;i++) if(actors[i].key===k) return actors[i]; return null; }
+function inHouse(a){ return Math.abs(a.x - houseCenterNear(a.x)) < HOUSE.w/2 - 26 && a.y > GROUND - 190; }
+
+function spawnMushroom(forceX, forceKind){
+  if(mushrooms.length >= curWx().max + 4) return;
+  var onBranch = Math.random() < 0.22;
+  var x, y;
+  if(onBranch){
+    var spawnCx = player ? player.x : 300;
+    var nearTrees = trees.filter(function(tr){ return Math.abs(tr.x - spawnCx) < 1000; });
+    var t = (nearTrees.length ? nearTrees : trees)[Math.floor(Math.random()*(nearTrees.length ? nearTrees.length : trees.length))];
+    x = t.x + (Math.random()<.5?-1:1) * (26 + Math.random()*30);
+    y = t.branchY;
+  } else {
+    x = (forceX !== undefined) ? forceX : (player ? player.x : 300) + (Math.random()*2-1) * 780;
+    y = GROUND;
+    if(Math.abs(x-houseCenterNear(x)) < 90) x += 160; /* 屋里不长 */
+  }
+  /* 种类：树枝上只长普通蘑菇；地面上约三成是牛肝菌（最多同时 3 个），牛肝菌不进背包；
+     毒蝇伞更稀少（最多同时 1 个），碰到会产生幻觉 */
+  var boleteCount = 0, flyCount = 0, bi;
+  for(bi=0;bi<mushrooms.length;bi++){
+    if(mushrooms[bi].kind === 'bolete') boleteCount++;
+    if(mushrooms[bi].kind === 'flyagaric') flyCount++;
+  }
+  var kind = 'mushroom';
+  if(forceKind) kind = forceKind;
+  else if(!onBranch && boleteCount < 3 && Math.random() < 0.3) kind = 'bolete';
+  else if(!onBranch && flyCount < 1 && Math.random() < 0.12) kind = 'flyagaric';
+  if(kind !== 'mushroom' && onBranch){ y = GROUND; } /* 牛肝菌、毒蝇伞只长在地面 */
+  mushrooms.push({
+    id: mushSeq++, x:x, y:y, onBranch:(kind !== 'mushroom' ? false : onBranch), kind:kind,
+    cap: kind === 'bolete'
+      ? ['#8a5a2b','#a0682f','#7c4f24'][Math.floor(Math.random()*3)]
+      : kind === 'flyagaric'
+        ? '#e33224'
+        : ['#e3a008','#e8862e','#c86bb8','#4a7fb5'][Math.floor(Math.random()*4)], /* 普通蘑菇不用红色——红色只留给毒蝇伞，免得认错 */
+    s: kind === 'bolete' ? 1.05 + Math.random()*.3 : .85 + Math.random()*.35,
+    born: performance.now(), spotted:{},
+    sprayT:0, stomped:false, hinted:false
+  });
+  /* 蘑菇在身边冒头时，极轻地「啵」一声（太远就听不见） */
+  if(started && player && Math.abs(x - player.x) < 480 && Math.random() < .65) sndPop();
+}
+
+/* ================= 声音（合成，无音频文件） ================= */
+var audioCtx = null, soundOn = true;
+function beep(freq, dur, type, vol, slideTo){
+  if(!soundOn) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + dur);
+    g.gain.setValueAtTime(vol || .12, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  }catch(e){}
+}
+function sndPick(){ beep(660,.09,'triangle',.14); setTimeout(function(){ beep(990,.12,'triangle',.12); },70); }
+function sndSpot(){ beep(520,.08,'square',.06,780); }
+function sndJump(){ beep(300,.12,'sine',.08,520); }
+function sndStomp(){ beep(170,.16,'sine',.22,60); setTimeout(function(){ beep(90,.12,'sine',.16,50); },60); }
+function sndSpore(){ beep(340,.28,'triangle',.07,760); }
+function sndHallu(){
+  beep(840,.45,'sine',.12,180);
+  setTimeout(function(){ beep(180,.5,'sine',.10,880); },160);
+  setTimeout(function(){ beep(660,.4,'triangle',.08,240); },380);
+}
+function sndThunder(){
+  if(!soundOn) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    var len = audioCtx.sampleRate * .6, buf = audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+    var d = buf.getChannelData(0), i;
+    for(i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+    var src = audioCtx.createBufferSource(); src.buffer = buf;
+    var f = audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value = 220;
+    var g = audioCtx.createGain(); g.gain.value = .5;
+    src.connect(f); f.connect(g); g.connect(audioCtx.destination); src.start();
+  }catch(e){}
+}
+/* ---- 新增音效：脚步 / 落地 / 环境声 / 提示音（全部合成，音量克制） ---- */
+function sndStep(climb){
+  /* 走路的轻轻哒哒声；爬树时音调稍高一点 */
+  beep(climb ? 240 + Math.random()*50 : 150 + Math.random()*40, .05, 'triangle', .045, climb ? 190 : 110);
+}
+function sndLand(){ beep(120,.11,'sine',.13,55); }                 /* 落地闷响 */
+function sndSquat(){ beep(300,.1,'sine',.07,170); }                /* 幻觉中想跳却蹲下：蔫蔫的一声 */
+function sndBoing(){ beep(190,.16,'sine',.08,430); }               /* 碰到牛肝菌：弹一下 */
+function sndPop(){ beep(310 + Math.random()*90,.06,'sine',.028,540); } /* 蘑菇在附近冒头：极轻的啵 */
+function sndAiPick(){ beep(520,.07,'triangle',.032,760); }         /* 伙伴采到蘑菇：远远的一声 */
+function sndBird(){
+  /* 晴天偶尔的鸟叫：两三声上扬的小啾啾 */
+  var base = 2200 + Math.random()*500;
+  beep(base,.07,'sine',.03,base*1.25);
+  setTimeout(function(){ beep(base*1.12,.06,'sine',.026,base*1.4); },110);
+  if(Math.random() < .5) setTimeout(function(){ beep(base*.95,.08,'sine',.022,base*1.2); },230);
+}
+function sndWxChime(w){
+  if(w.id === 'thunder'){ beep(96,.55,'sine',.11,62); return; }   /* 要打雷了：低沉的一声 */
+  beep(523,.13,'triangle',.06);
+  setTimeout(function(){ beep(784,.18,'triangle',.055); },130);
+}
+function sndRumble(){
+  /* 闪电落下前的远处闷雷预警 */
+  if(!soundOn) return;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    var len = audioCtx.sampleRate * .8, buf = audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+    var d = buf.getChannelData(0), i;
+    for(i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.sin(Math.PI * i/len) * .8;
+    var src = audioCtx.createBufferSource(); src.buffer = buf;
+    var f = audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value = 130;
+    var g = audioCtx.createGain(); g.gain.value = .34;
+    src.connect(f); f.connect(g); g.connect(audioCtx.destination); src.start();
+  }catch(e){}
+}
+function sndZap(){ beep(720,.32,'sawtooth',.07,110); setTimeout(function(){ beep(420,.22,'sawtooth',.05,80); },90); } /* 背包被闪电清空 */
+function sndSafe(){ beep(392,.14,'sine',.055); setTimeout(function(){ beep(587,.2,'sine',.05); },110); }              /* 进蘑菇屋：安心的两声 */
+function sndRelief(){ beep(440,.13,'triangle',.06); setTimeout(function(){ beep(660,.22,'triangle',.06); },120); }    /* 幻觉结束：松一口气 */
+function sndClick(){ beep(600,.05,'triangle',.06,760); }           /* 按钮点击 */
+function sndStart(){
+  beep(523,.11,'triangle',.09);
+  setTimeout(function(){ beep(659,.11,'triangle',.09); },100);
+  setTimeout(function(){ beep(784,.2,'triangle',.1); },200);
+}
+function sndWin(){
+  /* 胜利小号角：琶音往上冲 */
+  var notes = [523,659,784,1047];
+  for(var i=0;i<notes.length;i++){
+    (function(n, k){ setTimeout(function(){ beep(n,.22,'triangle',.11); }, k*130); })(notes[i], i);
+  }
+  setTimeout(function(){ beep(1319,.4,'triangle',.1,1568); },560);
+}
+/* ---- 循环雨声：白噪声过低通，音量随小雨/暴雨变化 ---- */
+var rainGain = null, rainSrc = null;
+function updateRainAmbience(){
+  if(!soundOn){ stopRainAmbience(); return; }
+  var id = started ? curWx().id : '';
+  var level = id === 'storm' ? 1 : id === 'drizzle' ? .45 : 0;
+  if(level <= 0){ stopRainAmbience(); return; }
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    if(!rainSrc){
+      var len = audioCtx.sampleRate * 2, buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      var d = buf.getChannelData(0), i;
+      for(i=0;i<len;i++) d[i] = Math.random()*2-1;
+      rainSrc = audioCtx.createBufferSource(); rainSrc.buffer = buf; rainSrc.loop = true;
+      var f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 850;
+      rainGain = audioCtx.createGain(); rainGain.gain.value = 0;
+      rainSrc.connect(f); f.connect(rainGain); rainGain.connect(audioCtx.destination);
+      rainSrc.start();
+    }
+    rainGain.gain.setTargetAtTime(.015 + level*.045, audioCtx.currentTime, .5);
+  }catch(e){}
+}
+function stopRainAmbience(){
+  try{ if(rainGain && audioCtx) rainGain.gain.setTargetAtTime(0, audioCtx.currentTime, .25); }catch(e){}
+}
+
+/* ================= 提示 ================= */
+var toastEl = document.getElementById('toast');
+function toast(msg, ms){
+  toastMsg = msg; toastUntil = performance.now() + (ms || 2600);
+  toastEl.textContent = msg; toastEl.classList.add('show');
+}
+
+/* ================= 输入 ================= */
+var keys = {};
+var touch = { left:false, right:false, up:false, down:false, jump:false };
+window.addEventListener('keydown', function(e){
+  keys[e.code] = true;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].indexOf(e.code) >= 0) e.preventDefault();
+  if(e.code === 'KeyE') tryPick(player);
+  if(e.code === 'KeyP' || e.code === 'Escape') togglePause();
+});
+window.addEventListener('keyup', function(e){ keys[e.code] = false; });
+function bindHold(id, prop){
+  var el = document.getElementById(id);
+  function on(e){ e.preventDefault(); touch[prop] = true; el.classList.add('held'); }
+  function off(e){ if(e) e.preventDefault(); touch[prop] = false; el.classList.remove('held'); }
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointerleave', off);
+  el.addEventListener('pointercancel', off);
+}
+bindHold('btnLeft','left'); bindHold('btnRight','right');
+bindHold('btnUp','up'); bindHold('btnDown','down');
+document.getElementById('btnJump').addEventListener('pointerdown', function(e){ e.preventDefault(); touch.jump = true; });
+document.getElementById('btnJump').addEventListener('pointerup', function(){ touch.jump = false; });
+document.getElementById('btnPick').addEventListener('pointerdown', function(e){ e.preventDefault(); if(!tryStomp()) tryPick(player); });
+/* 点一下画面（鼠标/触摸）：正碰到牛肝菌时，主角踩它一脚 → 喷孢子 */
+canvas.addEventListener('pointerdown', function(){ tryStomp(); });
+var jumpWasDown = false;
+
+/* ================= 采蘑菇 ================= */
+function burst(x,y,color){
+  for(var i=0;i<10;i++){
+    particles.push({ x:x, y:y-14, vx:(Math.random()-.5)*160, vy:-Math.random()*160-30, life:.6, color:color, r:2.5+Math.random()*2.5 });
+  }
+}
+function collectMushroom(a, m){
+  if(m.kind !== 'mushroom') return; /* 只有普通蘑菇进背包 */
+  mushrooms.splice(mushrooms.indexOf(m),1);
+  /* 每个人都有自己的背包：谁采到的进谁的背包，数字只会因为自己采到而涨 */
+  a.pack = Math.min(CAPACITY, (a.pack || 0) + 1);
+  burst(m.x, m.y, m.cap);
+  if(a === player){
+    sndPick();
+    updateHUD();
+    if(a.pack >= CAPACITY && !won) winGame();
+  } else {
+    sndAiPick(); /* 伙伴采到也有轻轻一声，能听见他们在干活 */
+  }
+}
+function tryPick(a){
+  if(!started || won || !a) return;
+  var best = null, bd = 64;
+  for(var i=0;i<mushrooms.length;i++){
+    var m = mushrooms[i];
+    if(m.kind !== 'mushroom') continue;
+    var d = Math.hypot(m.x - a.x, (m.y) - (a.y - 20));
+    if(d < bd){ bd = d; best = m; }
+  }
+  if(best) collectMushroom(a, best);
+}
+function nearestMushroom(x, y, ignoreBranch){
+  var best = null, bd = 1e9;
+  for(var i=0;i<mushrooms.length;i++){
+    var m = mushrooms[i];
+    if(m.kind !== 'mushroom') continue; /* AI 伙伴只找普通蘑菇，牛肝菌和毒蝇伞都不碰 */
+    if(ignoreBranch && m.onBranch) continue;
+    var d = Math.hypot(m.x-x, m.y-y);
+    if(d < bd){ bd = d; best = m; }
+  }
+  return best;
+}
+
+/* ================= 碰到就采 + 牛肝菌喷孢子（No.3 / No.6 / No.7） ================= */
+/* 主角碰到普通蘑菇 → 直接收进背包，不用按键 */
+function checkTouchPickup(){
+  var p = player;
+  if(!p || !started || won) { touchingBolete = null; return; }
+  touchingBolete = null;
+  for(var i=mushrooms.length-1;i>=0;i--){
+    var m = mushrooms[i];
+    /* 树枝上的蘑菇长在树干侧边 26–56px 处，而爬树时主角的 x 锁在树干上，
+       32px 的普通范围够不着——横向放宽到 64（和以前按 E 键采摘的范围一致），
+       站上树枝或爬树经过时都能碰到；纵向仍卡住，站在地面上采不到树上的。 */
+    var reachX = m.onBranch ? 64 : 32;
+    var reachY = m.onBranch ? 40 : 30;
+    var touching = Math.abs(m.x - p.x) < reachX && Math.abs(m.y - p.y) < reachY;
+    if(!touching) continue;
+    if(m.kind === 'bolete'){
+      if(!m.stomped && m.sprayT <= 0){
+        touchingBolete = m;
+        if(!m.hinted){
+          m.hinted = true;
+          sndBoing();
+          sayBubble(p, '牛肝菌！点一下踩它！', 1700);
+          toast('🍄 碰到牛肝菌啦——点一下鼠标，主角就会踩它一脚！', 2600);
+        }
+      }
+    } else if(m.kind === 'flyagaric'){
+      /* 碰到毒蝇伞：不进背包，直接触发幻觉 */
+      mushrooms.splice(i,1);
+      triggerHallucination(m.x, m.y);
+    } else {
+      collectMushroom(p, m);
+    }
+  }
+}
+/* 黄褐色孢子 */
+var SPORE_COLORS = ['#b5892e','#c9a227','#a67c2e','#d4b04a','#8a6d1f','#caa64b'];
+function emitSpores(b, n){
+  for(var i=0;i<n;i++){
+    sporeParticles.push({
+      x: b.x + (Math.random()-.5)*22, y: b.y - 20 - Math.random()*6,
+      vx: (Math.random()-.5)*130, vy: -60 - Math.random()*150,
+      life: 1.1 + Math.random()*1.1, maxLife: 2.2,
+      color: SPORE_COLORS[Math.floor(Math.random()*SPORE_COLORS.length)],
+      r: 2 + Math.random()*3
+    });
+  }
+}
+/* 点鼠标：主角踩正碰到的牛肝菌一脚 → 牛肝菌开始喷孢子 */
+function tryStomp(){
+  if(!started || won || !player) return false;
+  var b = touchingBolete;
+  if(!b || b.stomped || mushrooms.indexOf(b) < 0) return false;
+  b.stomped = true;
+  b.sprayT = 2.6;               /* 持续喷约 2.6 秒，喷完瘪下去消失 */
+  player.stompT = .35;          /* 主角下踩动作 */
+  player.face = b.x >= player.x ? 1 : -1;
+  sndStomp(); sndSpore();
+  emitSpores(b, 26);
+  sayBubble(player, '踩！喷孢子啦！', 1500);
+  toast('💨 牛肝菌喷出黄褐色的孢子啦！', 2400);
+  return true;
+}
+/* 牛肝菌喷发推进：喷发中持续冒孢子，喷完移除 */
+function updateBoletes(dt){
+  for(var i=mushrooms.length-1;i>=0;i--){
+    var m = mushrooms[i];
+    if(m.kind !== 'bolete' || m.sprayT <= 0) continue;
+    m.sprayT -= dt;
+    emitSpores(m, 3);
+    if(m.sprayT <= 0){
+      emitSpores(m, 10);
+      mushrooms.splice(i,1);
+      if(touchingBolete === m) touchingBolete = null;
+    }
+  }
+}
+
+/* ================= 毒蝇伞幻觉（No.11） =================
+   碰到毒蝇伞 → 15 秒幻觉：走路倒过来、方向全反（跳变蹲）、
+   看见不存在的强光/彩色暴雨/巨型蘑菇，整个世界扭曲。 */
+function triggerHallucination(x, y){
+  if(!player) return;
+  var again = player.halluT > 0;
+  player.halluT = 15;
+  burst(x, y, '#e33224');
+  sndHallu();
+  sayBubble(player, '哇——天旋地转！', 2100);
+  toast(again
+    ? '🍄✨ 又碰到毒蝇伞！幻觉重新计时——方向还是反的！'
+    : '🍄✨ 糟糕，碰到毒蝇伞啦！你出现幻觉了：走路倒过来、方向全反了，还会看见不存在的东西！坚持 15 秒就好～', 3800);
+}
+
+/* ================= 天气/闪电 ================= */
+function setWeather(announce){
+  var w = curWx();
+  wxTimer = 0;
+  wxDur = 15000 + Math.random()*8000;
+  if(w.id === 'thunder'){ strikeTimer = 2.6; }
+  rainDrops = []; embers = [];
+  if(announce){ toast(w.icon + ' 天气变成「' + w.name + '」' + weatherHint(w), 3000); sndWxChime(w); }
+  updateRainAmbience();
+  updateHUD();
+}
+function weatherHint(w){
+  if(w.id==='drizzle' || w.id==='storm') return '——蘑菇变多了！';
+  if(w.id==='thunder') return '——快躲进蘑菇屋！';
+  if(w.id==='firerain') return '——火山在下火雨！';
+  return '';
+}
+function lightningStrike(){
+  var w = curWx(); if(w.id !== 'thunder') return;
+  flashT = .28; shakeT = .35; sndThunder();
+  var sx;
+  if(player && !inHouse(player) && Math.random() < .75){
+    sx = player.x + (Math.random()-.5)*260;
+  } else {
+    sx = (player ? player.x : 300) + (Math.random()-.5) * (VIEW_W + 300);
+  }
+  bolts.push({ x:sx, life:.3, seed:Math.random()*100 });
+  /* 烧毁落点附近的蘑菇 */
+  var burned = 0;
+  for(var i=mushrooms.length-1;i>=0;i--){
+    if(Math.abs(mushrooms[i].x - sx) < 130 && !mushrooms[i].onBranch){
+      burst(mushrooms[i].x, mushrooms[i].y, '#55524a');
+      mushrooms.splice(i,1); burned++;
+    }
+  }
+  if(player && started && !won){
+    /* 没躲进蘑菇屋的人，自己的背包会被闪电清空 */
+    var playerHad = player.pack > 0;
+    for(var ai2=0; ai2<actors.length; ai2++){ if(!inHouse(actors[ai2])) actors[ai2].pack = 0; }
+    if(inHouse(player)){
+      toast('⚡ 闪电劈在蘑菇屋上——屋里安全，背包保住了！', 2800);
+    } else if(playerHad){
+      sndZap();
+      updateHUD();
+      toast('⚡ 轰隆！闪电烧毁了蘑菇，你的背包被清空了！快躲进蘑菇屋！', 3400);
+    } else {
+      toast('⚡ 好险！闪电就在附近，你的背包是空的没损失——快进蘑菇屋！', 3000);
+    }
+  }
+  if(burned > 0 && inHouse(player)) { /* 屋内提示已覆盖 */ }
+}
+
+/* ================= AI 伙伴 ================= */
+function updateAI(a, dt){
+  a.aiPickCd -= dt; a.aiThink -= dt;
+  if(curWx().id === 'thunder' && !inHouse(a)){
+    /* 打雷先跑回蘑菇屋 */
+    moveToward(a, houseCenterNear(a.x), dt, 1.35);
+    return;
+  }
+  if(a.aiWait > 0){ a.aiWait -= dt; a.vx = 0; return; }
+  var target = (a.aiTarget && mushrooms.indexOf(a.aiTarget) >= 0) ? a.aiTarget : null;
+  if(!target || a.aiThink <= 0){
+    target = nearestMushroom(a.x, a.y, true);
+    a.aiTarget = target; a.aiThink = .6;
+  }
+  if(!target){
+    /* 没蘑菇就散步 */
+    if(a.aiThink <= 0){ a.aiDir = Math.random()<.5?-1:1; a.aiThink = 1.6; }
+    a.vx = a.aiDir * 55; a.face = a.aiDir;
+    a.x += a.vx * dt;
+    return;
+  }
+  var dx = target.x - a.x;
+  if(Math.abs(dx) < 26){
+    a.vx = 0;
+    if(a.aiPickCd <= 0 && !won){
+      a.aiPickCd = 2.4;
+      a.aiWait = .55; /* 捂脸+拾取停顿 */
+      collectMushroom(a, target);
+      if(Math.random() < .4) sayBubble(a, '采到啦！🍄');
+      a.aiTarget = null;
+    }
+  } else {
+    moveToward(a, target.x, dt, .62);
+  }
+}
+function moveToward(a, tx, dt, speedMul){
+  var dx = tx - a.x;
+  var sp = 200 * (speedMul || 1);
+  if(Math.abs(dx) > 6){
+    a.face = dx > 0 ? 1 : -1;
+    a.vx = a.face * sp;
+    a.x += a.vx * dt;
+    a.walkPh += dt * 9;
+  } else a.vx = 0;
+}
+function sayBubble(a, text, ms){
+  a.bubble = text; a.bubbleT = (ms || 1800)/1000;
+}
+
+/* 发现蘑菇 → 捂脸动画 */
+function checkSpot(a){
+  for(var i=0;i<mushrooms.length;i++){
+    var m = mushrooms[i];
+    if(m.kind !== 'mushroom') continue;
+    if(m.spotted[a.key]) continue;
+    var d = Math.hypot(m.x - a.x, m.y - (a.y - 24));
+    if(d < 118){
+      m.spotted[a.key] = true;
+      if(performance.now() - m.born > 350){
+        a.faceCoverT = .95;
+        if(a === player){ sndSpot(); sayBubble(a, '哇！蘑菇！', 1100); }
+        else if(Math.random() < .55){ sayBubble(a, '这里有蘑菇！', 1600); }
+      }
+    }
+  }
+}
+
+/* ================= 玩家更新 ================= */
+function nearestTree(x){
+  var best = null, bd = 40;
+  for(var i=0;i<trees.length;i++){
+    var d = Math.abs(trees[i].x - x);
+    if(d < bd){ bd = d; best = trees[i]; }
+  }
+  return best;
+}
+function updatePlayer(dt){
+  var p = player; if(!p) return;
+  var left = keys['ArrowLeft'] || keys['KeyA'] || touch.left;
+  var right = keys['ArrowRight'] || keys['KeyD'] || touch.right;
+  var up = keys['ArrowUp'] || keys['KeyW'] || touch.up;
+  var down = keys['ArrowDown'] || keys['KeyS'] || touch.down;
+  var jumpDown = keys['Space'] || keys['KeyJ'] || touch.jump;
+
+  /* 毒蝇伞幻觉：行为方向全反——左右互换、上下互换，想跳跃却变成蹲下 */
+  if(p.halluT > 0){
+    var swapL = left; left = right; right = swapL;
+    var swapU = up; up = down; down = swapU;
+    if(jumpDown && !jumpWasDown) sndSquat();
+    if(jumpDown) p.squatT = .22;
+    jumpDown = false;
+  }
+  if(p.squatT > 0) p.squatT -= dt;
+
+  if(p.climbing){
+    var t = p.climbTree;
+    p.x = t.x; p.vy = 0;
+    if(up) p.y -= 130 * dt;
+    if(down) p.y += 130 * dt;
+    if(up || down){ p.stepT = (p.stepT || 0) + dt; if(p.stepT > .3){ p.stepT = 0; sndStep(true); } }
+    var topY = GROUND - t.h + 78;
+    if(p.y < topY) p.y = topY;
+    if(p.y >= GROUND){ p.y = GROUND; p.climbing = false; p.climbTree = null; p.onGround = true; }
+    if(jumpDown && !jumpWasDown){
+      p.climbing = false; p.climbTree = null;
+      p.vy = -330; p.y -= 4; p.onGround = false;
+    }
+    if(left){ p.climbing = false; p.climbTree = null; p.x -= 14; }
+    if(right){ p.climbing = false; p.climbTree = null; p.x += 14; }
+  } else {
+    var sp = 218;
+    p.vx = 0;
+    if(left){ p.vx = -sp; p.face = -1; }
+    if(right){ p.vx = sp; p.face = 1; }
+    if(p.squatT > 0) p.vx = 0;   /* 蹲下时走不动 */
+    p.x += p.vx * dt;
+    if(p.vx !== 0 && p.onGround){
+      p.walkPh += dt * 11;
+      p.stepT = (p.stepT || 0) + dt;
+      if(p.stepT > .27){ p.stepT = 0; sndStep(false); }   /* 走路的哒哒脚步声 */
+    }
+
+    /* 开始爬树 */
+    if(up && p.onGround){
+      var nt = nearestTree(p.x);
+      if(nt){ p.climbing = true; p.climbTree = nt; p.x = nt.x; p.vy = 0; }
+    }
+    /* 跳跃 */
+    if(jumpDown && !jumpWasDown && p.onGround){
+      p.vy = -560; p.onGround = false; sndJump();
+    }
+    /* 重力 + 树枝平台 */
+    p.vy += 1500 * dt;
+    p.y += p.vy * dt;
+    var floor = GROUND;
+    for(var i=0;i<trees.length;i++){
+      var tr = trees[i];
+      if(Math.abs(p.x - tr.x) < 62 && p.vy >= 0){
+        var prevBottom = p.y - p.vy * dt;
+        if(prevBottom <= tr.branchY + 6 && p.y >= tr.branchY) floor = Math.min(floor, tr.branchY);
+      }
+    }
+    var landV = p.vy, wasAirborne = !p.onGround;
+    if(p.y >= floor){ p.y = floor; p.vy = 0; p.onGround = true; if(wasAirborne && landV > 300) sndLand(); }
+    else if(p.y < floor - 2) p.onGround = false;
+  }
+  /* 无限世界：主角没有左右边界，一直走都走不到头 */
+  jumpWasDown = !!jumpDown;
+}
+
+/* ================= 主循环 ================= */
+var lastTs = 0, animT = 0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  var dt = Math.min(.033, (ts - lastTs) / 1000 || .016);
+  lastTs = ts;
+  if(!paused) animT += dt;   /* 暂停时连画面里的小晃动也一起停住 */
+  if(started && !won && !paused){
+    elapsed += dt;
+    updatePlayer(dt);
+    for(var i=0;i<actors.length;i++){
+      var a = actors[i];
+      if(a !== player) updateAI(a, dt);
+      if(a.faceCoverT > 0) a.faceCoverT -= dt;
+      if(a.bubbleT > 0) a.bubbleT -= dt;
+      if(a.stompT > 0) a.stompT -= dt;
+      if(a.halluT > 0){
+        a.halluT -= dt;
+        if(a.halluT <= 0){
+          a.halluT = 0;
+          if(a === player){ sndRelief(); toast('呼——幻觉过去啦！方向恢复正常，世界也不转了。', 2800); }
+        }
+      }
+      checkSpot(a);
+    }
+    checkTouchPickup();   /* 碰到普通蘑菇自动采；碰到牛肝菌则待命等点击 */
+    updateBoletes(dt);    /* 正在喷发的牛肝菌持续喷孢子 */
+    /* 无限世界：离主角太远的蘑菇收掉，蘑菇只在身边一带生长 */
+    for(var fm=mushrooms.length-1; fm>=0; fm--){
+      if(Math.abs(mushrooms[fm].x - player.x) > 2400) mushrooms.splice(fm,1);
+    }
+    /* 天气轮换 */
+    wxTimer += dt * 1000;
+    if(wxTimer >= wxDur){ wxIdx++; setWeather(true); }
+    /* 蘑菇生成 */
+    spawnTimer -= dt * 1000;
+    var groundCount = mushrooms.filter(function(m){return !m.onBranch;}).length;
+    if(spawnTimer <= 0){
+      spawnTimer = curWx().spawnMs * (0.75 + Math.random()*.5);
+      if(groundCount < curWx().max || Math.random() < .25) spawnMushroom();
+    }
+    /* 雷电 */
+    if(curWx().id === 'thunder'){
+      strikeTimer -= dt;
+      if(strikeTimer < .7){ if(warnT === 0) sndRumble(); warnT += dt; } else warnT = 0; /* 落雷前先闷闷地响一声预警 */
+      if(strikeTimer <= 0){ lightningStrike(); strikeTimer = 3 + Math.random()*1.6; }
+    }
+    /* 雨滴/火雨粒子生成 */
+    var wid = curWx().id;
+    if((wid === 'sunny' || wid === 'cloudy') && Math.random() < dt * .22) sndBird(); /* 好天气里偶尔有鸟叫 */
+    if(wid === 'drizzle' || wid === 'storm'){
+      var n = wid === 'storm' ? 7 : 3, k;
+      for(k=0;k<n;k++) rainDrops.push({ x: camX + Math.random()*(VIEW_W+80), y:-10, v: wid==='storm'?620:430, slant: wid==='storm'?-90:-40 });
+    }
+    if(wid === 'firerain'){
+      for(var k2=0;k2<3;k2++) embers.push({ x: camX + Math.random()*VIEW_W, y:-8, v:150+Math.random()*130, sway:Math.random()*40, ph:Math.random()*6 });
+    }
+    /* 幻觉中不断冒出不存在的彩色光球 */
+    if(player.halluT > 0 && Math.random() < dt*7){
+      halluOrbs.push({ x: Math.random()*VIEW_W, y: VIEW_H + 30, vy: -(26+Math.random()*40), hue: Math.floor(Math.random()*360), r: 9+Math.random()*22, ph: Math.random()*6 });
+    }
+    document.getElementById('clock').textContent = fmtTime(elapsed);
+  }
+  /* 粒子推进（暂停时冻结） */
+  if(!paused) updateParticles(dt);
+  /* 相机 */
+  if(player){
+    var target = player.x - VIEW_W/2;
+    camX += (target - camX) * Math.min(1, dt*6);
+    buildWorldWindow(player.x);
+    updateStrip();
+    var nowInHouse = inHouse(player);
+    document.getElementById('safeBadge').classList.toggle('on', nowInHouse);
+    if(nowInHouse && !wasInHouse && started && !won) sndSafe(); /* 踏进蘑菇屋的那一下 */
+    wasInHouse = nowInHouse;
+    var hb = document.getElementById('halluBadge');
+    if(hb){
+      var hon = player.halluT > 0;
+      hb.classList.toggle('on', hon);
+      if(hon) hb.textContent = '🌀 幻觉中 ' + Math.ceil(player.halluT) + ' 秒';
+    }
+  }
+  if(!paused){
+    if(flashT > 0) flashT -= dt;
+    if(shakeT > 0) shakeT -= dt;
+    for(var b=bolts.length-1;b>=0;b--){ bolts[b].life -= dt; if(bolts[b].life<=0) bolts.splice(b,1); }
+  }
+  if(toastEl.classList.contains('show') && performance.now() > toastUntil) toastEl.classList.remove('show');
+  draw(animT);
+}
+function updateParticles(dt){
+  var i;
+  for(i=particles.length-1;i>=0;i--){
+    var p = particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 300*dt; p.life -= dt;
+    if(p.life<=0) particles.splice(i,1);
+  }
+  for(i=sporeParticles.length-1;i>=0;i--){
+    var sp = sporeParticles[i];
+    sp.x += sp.vx*dt; sp.y += sp.vy*dt;
+    sp.vx *= (1 - .8*dt); sp.vy += 26*dt; /* 孢子轻轻上飘后缓缓落 */
+    if(sp.vy > 26) sp.vy = 26;
+    sp.life -= dt;
+    if(sp.life<=0) sporeParticles.splice(i,1);
+  }
+  for(i=rainDrops.length-1;i>=0;i--){
+    var r = rainDrops[i]; r.y += r.v*dt; r.x += r.slant*dt;
+    if(r.y > VIEW_H) rainDrops.splice(i,1);
+  }
+  for(i=embers.length-1;i>=0;i--){
+    var e = embers[i]; e.y += e.v*dt; e.x += Math.sin(e.ph + e.y*.02)*.6;
+    if(e.y > VIEW_H) embers.splice(i,1);
+  }
+  for(i=halluOrbs.length-1;i>=0;i--){
+    var ob = halluOrbs[i]; ob.y += ob.vy*dt; ob.x += Math.sin(ob.ph + ob.y*.02)*.5;
+    if(ob.y < -50) halluOrbs.splice(i,1);
+  }
+  for(i=0;i<bgClouds.length;i++){
+    bgClouds[i].x += bgClouds[i].v * dt;
+    if(bgClouds[i].x - camX > VIEW_W + 220) bgClouds[i].x -= (VIEW_W + 440);
+    if(camX - bgClouds[i].x > 220) bgClouds[i].x += (VIEW_W + 440);
+  }
+}
+function fmtTime(s){
+  var m = Math.floor(s/60), ss = Math.floor(s%60);
+  return m + ':' + (ss<10?'0':'') + ss;
+}
+
+/* ================= 绘制 ================= */
+function draw(t){
+  var w = started ? curWx() : WEATHERS[0];
+  var hallu = !!(player && player.halluT > 0);
+  ctx.save();
+  /* 天空（纸面）：幻觉时天空变成缓缓流动的彩虹色 */
+  ctx.fillStyle = hallu ? ('hsl(' + Math.floor((t*46) % 360) + ',82%,86%)') : w.sky;
+  ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  /* 纸纹 */
+  ctx.fillStyle = 'rgba(51,50,44,.035)';
+  for(var g=0; g<40; g++){
+    var gx = rnd(g*3 + Math.floor(camX/50))*VIEW_W, gy = rnd(g*7)*VIEW_H;
+    ctx.fillRect(gx, gy, 26, 1.4);
+  }
+  var shX = shakeT>0 ? (Math.random()-.5)*7 : 0;
+  var shY = shakeT>0 ? (Math.random()-.5)*5 : 0;
+  ctx.translate(-camX + shX, shY);
+  if(hallu){
+    /* 幻觉：整个世界绕着画面中心轻轻扭曲、摇晃 */
+    var ccx = camX + VIEW_W/2;
+    ctx.translate(ccx, VIEW_H/2);
+    ctx.transform(1, Math.sin(t*1.9)*.028, Math.sin(t*1.35)*.05, 1, 0, Math.sin(t*2.6)*4);
+    ctx.rotate(Math.sin(t*.75)*.014);
+    ctx.translate(-ccx, -VIEW_H/2);
+  }
+
+  drawSunAndClouds(w, t);
+  drawVolcano(w, t);
+  drawFarTrees(w);
+  drawGround(w);
+  drawHouse(t);
+  for(var i=0;i<trees.length;i++) drawTree(trees[i], t);
+  for(var m=0;m<mushrooms.length;m++) drawMushroom(mushrooms[m], t);
+  /* 先画 AI，再画玩家 */
+  var sorted = actors.slice().sort(function(a,b){ return (a===player)?1:(b===player?-1:0); });
+  for(var s=0;s<sorted.length;s++) drawActor(sorted[s], t);
+  drawParticlesWorld();
+  if(hallu) drawPhantoms(t);   /* 天上飘着不存在的巨大毒蝇伞 */
+  ctx.restore();
+
+  /* 天气覆盖层（屏幕空间） */
+  drawWeatherFX(w, t);
+  if(hallu) drawHalluFX(t);
+  if(flashT > 0){ ctx.fillStyle = 'rgba(255,255,240,' + (flashT*2.4) + ')'; ctx.fillRect(0,0,VIEW_W,VIEW_H); }
+  if(curWx().id==='thunder' && started && warnT>0){
+    ctx.fillStyle = 'rgba(70,70,90,' + (0.08 + Math.sin(t*30)*0.04) + ')'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  }
+  /* 闪电（屏幕外坐标换算回世界） */
+  ctx.save(); ctx.translate(-camX, 0);
+  for(var b=0;b<bolts.length;b++) drawBolt(bolts[b]);
+  ctx.restore();
+}
+function drawSunAndClouds(w, t){
+  var i, c;
+  if(w.id === 'sunny' || w.id === 'cloudy' || w.id === 'firerain'){
+    var sx = camX + 120, sy = 74;
+    ctx.strokeStyle = '#33322c'; ctx.fillStyle = '#ffd23e';
+    doodleCircle(sx, sy, 30, 5); ctx.fill();
+    ctx.strokeStyle = '#e3a008';
+    for(i=0;i<8;i++){
+      var a = i/8*Math.PI*2 + .3;
+      doodleLine(sx+Math.cos(a)*40, sy+Math.sin(a)*40, sx+Math.cos(a)*54, sy+Math.sin(a)*54, i*3, 3);
+    }
+  }
+  var cloudN = (w.id==='sunny') ? 4 : bgClouds.length;
+  ctx.fillStyle = (w.id==='thunder'||w.id==='storm'||w.id==='overcast') ? '#e3e1da' : '#fffdf4';
+  ctx.strokeStyle = '#33322c';
+  for(i=0;i<cloudN;i++){
+    c = bgClouds[i];
+    if(c.x < camX - 160 || c.x > camX + VIEW_W + 160) continue;
+    ctx.lineWidth = 2.5;
+    cloudPath(c.x, c.y + Math.sin(t*.5 + c.seed)*3, c.s, c.seed);
+    ctx.fill(); ctx.stroke();
+  }
+}
+function drawVolcano(w, t){
+  var vk0 = Math.floor((camX-280)/PERIOD), vk1 = Math.floor((camX+VIEW_W+280)/PERIOD);
+  for(var vk=vk0; vk<=vk1; vk++) drawOneVolcano(VOLCANO_OFFSET + vk*PERIOD, w, t);
+}
+function drawOneVolcano(x, w, t){
+  var base = GROUND;
+  ctx.fillStyle = '#cbb9a0'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x-190, base); ctx.lineTo(x-58, base-238); ctx.lineTo(x-26, base-238);
+  ctx.lineTo(x+8, base-262); ctx.lineTo(x+40, base-238); ctx.lineTo(x+66, base-238);
+  ctx.lineTo(x+190, base); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8862e';
+  ctx.beginPath(); ctx.ellipse(x+7, base-252, 34, 9, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  /* 熔岩纹 */
+  ctx.strokeStyle = '#d9534a'; ctx.lineWidth = 3;
+  doodleLine(x-10, base-238, x-22, base-160, 41, 3);
+  doodleLine(x+26, base-232, x+44, base-150, 43, 3);
+  /* 烟 */
+  ctx.fillStyle = 'rgba(120,116,108,.5)';
+  for(var i=0;i<3;i++){
+    var sy = base - 285 - i*36 - (t*14 % 36);
+    doodleCircle(x + 8 + Math.sin(t + i*2)*9 + i*10, sy, 17 + i*6, i*13 + Math.floor(t));
+  }
+  if(w.id === 'firerain'){
+    ctx.fillStyle = '#d9534a'; ctx.font = '700 17px inherit';
+    ctx.fillText('火山喷发中！', x - 48, base - 330);
+  }
+}
+function drawFarTrees(w){
+  ctx.strokeStyle = 'rgba(51,50,44,.4)'; ctx.fillStyle = 'rgba(180,190,160,.4)';
+  for(var i=Math.floor((camX-140)/195); i<=Math.ceil((camX+VIEW_W+140)/195); i++){
+    var x = i*195 + 60, h = 90 + rnd(i*23)*50;
+    if(x < camX-120 || x > camX+VIEW_W+120) continue;
+    doodleLine(x, GROUND-40, x, GROUND-40-h, i*7, 2);
+    doodleCircle(x, GROUND-52-h, 34, i*11);
+  }
+}
+function drawGround(w){
+  /* 地面 */
+  ctx.fillStyle = '#e9dfc2';
+  ctx.fillRect(camX-20, GROUND, VIEW_W+40, VIEW_H-GROUND);
+  ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(camX-20, GROUND);
+  for(var x=camX-20; x<camX+VIEW_W+20; x+=36){
+    ctx.lineTo(x+18, GROUND + Math.sin(x*.05)*2.5);
+    ctx.lineTo(x+36, GROUND);
+  }
+  ctx.stroke();
+  /* 草地色块 */
+  ctx.fillStyle = 'rgba(93,155,106,.20)';
+  ctx.fillRect(camX-20, GROUND+2, VIEW_W+40, 16);
+  var i, it;
+  ctx.strokeStyle = '#5d9b6a'; ctx.lineWidth = 2;
+  for(i=0;i<grassTufts.length;i++){
+    it = grassTufts[i];
+    if(it.x < camX-20 || it.x > camX+VIEW_W+20) continue;
+    doodleLine(it.x, GROUND+4, it.x-5*it.s, GROUND-8*it.s, it.seed, 2);
+    doodleLine(it.x, GROUND+4, it.x, GROUND-11*it.s, it.seed+2, 2);
+    doodleLine(it.x, GROUND+4, it.x+5*it.s, GROUND-7*it.s, it.seed+4, 2);
+  }
+  ctx.lineWidth = 2;
+  for(i=0;i<flowers.length;i++){
+    it = flowers[i];
+    if(it.x < camX-20 || it.x > camX+VIEW_W+20) continue;
+    ctx.strokeStyle = '#5d9b6a'; doodleLine(it.x, GROUND+3, it.x, GROUND-9, it.seed, 2);
+    ctx.fillStyle = it.c; ctx.strokeStyle = '#33322c';
+    doodleCircle(it.x, GROUND-13, 4.5, it.seed); ctx.fill();
+  }
+  ctx.fillStyle = '#cfc7ae'; ctx.strokeStyle = '#33322c';
+  for(i=0;i<stones.length;i++){
+    it = stones[i];
+    if(it.x < camX-20 || it.x > camX+VIEW_W+20) continue;
+    ctx.beginPath(); ctx.ellipse(it.x, GROUND+8, it.r, it.r*.55, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+}
+function drawTree(tr, t){
+  var sway = Math.sin(t*.8 + tr.seed)*2.2;
+  ctx.strokeStyle = '#33322c';
+  /* 树干 */
+  ctx.fillStyle = '#b98d5f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(tr.x-9, GROUND+2);
+  ctx.quadraticCurveTo(tr.x-6+sway*.3, GROUND-tr.h*.55, tr.x-4+sway, GROUND-tr.h+16);
+  ctx.lineTo(tr.x+6+sway, GROUND-tr.h+16);
+  ctx.quadraticCurveTo(tr.x+8+sway*.3, GROUND-tr.h*.5, tr.x+10, GROUND+2);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 树枝平台 */
+  ctx.strokeStyle = '#33322c'; ctx.lineWidth = 4;
+  doodleLine(tr.x-62, tr.branchY, tr.x+62, tr.branchY - 3, tr.seed+31, 4);
+  ctx.strokeStyle = '#8a5a3b'; ctx.lineWidth = 2;
+  doodleLine(tr.x-62, tr.branchY+4, tr.x+62, tr.branchY+1, tr.seed+33, 2);
+  /* 树冠（云朵形涂鸦） */
+  ctx.fillStyle = '#a9c795'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
+  cloudPath(tr.x + sway, GROUND - tr.h - 6, 1.05, tr.seed);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(93,155,106,.35)';
+  cloudPath(tr.x - 26 + sway, GROUND - tr.h + 8, .62, tr.seed+5); ctx.fill();
+}
+function drawHouse(t){
+  var hk0 = Math.floor((camX-340)/PERIOD), hk1 = Math.floor((camX+VIEW_W+340)/PERIOD);
+  for(var hk=hk0; hk<=hk1; hk++) drawOneHouse(HOUSE_OFFSET + hk*PERIOD, t);
+}
+function drawOneHouse(cx, t){
+  var base = GROUND, w2 = HOUSE.w/2;
+  var playerIn = player && Math.abs(player.x - cx) < HOUSE.w/2 - 26 && player.y > GROUND - 190;
+  /* 茎（墙体） */
+  ctx.fillStyle = playerIn ? 'rgba(255,248,225,.75)' : '#fff3d6';
+  ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx-w2+26, base+2);
+  ctx.lineTo(cx-w2+26, base-118);
+  ctx.quadraticCurveTo(cx, base-138, cx+w2-26, base-118);
+  ctx.lineTo(cx+w2-26, base+2);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 巨型蘑菇伞盖 */
+  ctx.fillStyle = '#d9534a';
+  ctx.beginPath();
+  ctx.moveTo(cx-w2-24, base-112);
+  ctx.quadraticCurveTo(cx, base-238 - Math.sin(t*1.4)*3, cx+w2+24, base-112);
+  ctx.quadraticCurveTo(cx, base-84, cx-w2-24, base-112);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 伞盖白点 */
+  ctx.fillStyle = '#fff6e8';
+  var spots = [[-70,-150,13],[-18,-182,16],[38,-158,12],[78,-132,9],[-44,-128,8]];
+  for(var i=0;i<spots.length;i++){ doodleCircle(cx+spots[i][0], base+spots[i][1], spots[i][2], i*7); ctx.fill(); }
+  /* 门 + 窗 */
+  ctx.fillStyle = '#8a5a3b'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx-24, base+2); ctx.lineTo(cx-24, base-58);
+  ctx.quadraticCurveTo(cx, base-78, cx+24, base-58); ctx.lineTo(cx+24, base+2); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffd23e'; doodleCircle(cx+13, base-28, 3.5, 9); ctx.fill();
+  ctx.fillStyle = '#ffeebb';
+  ctx.fillRect(cx-72, base-92, 30, 26); ctx.strokeRect(cx-72, base-92, 30, 26);
+  ctx.fillRect(cx+44, base-92, 30, 26); ctx.strokeRect(cx+44, base-92, 30, 26);
+  /* 招牌 */
+  ctx.fillStyle = '#fffdf4'; ctx.strokeStyle = '#33322c';
+  ctx.fillRect(cx-56, base-176, 112, 25); ctx.strokeRect(cx-56, base-176, 112, 25);
+  ctx.fillStyle = '#33322c'; ctx.font = '700 15px "Comic Sans MS","PingFang SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🍄 蘑菇屋 · 躲雷', cx, base-158);
+  ctx.textAlign = 'left';
+  if(playerIn){
+    ctx.fillStyle = 'rgba(93,155,106,.16)';
+    ctx.fillRect(cx-w2+26, base-118, HOUSE.w-52, 120);
+  }
+}
+function drawBolete(m, t){
+  var pop = Math.min(1, (performance.now()-m.born)/260);
+  var s = m.s * (0.4 + 0.6*pop);
+  var spraying = m.sprayT > 0;
+  var squash = spraying ? .55 : 1;                       /* 被踩后瘪下去 */
+  var shake = spraying ? (rnd(m.id*7 + Math.floor(t*18))-.5)*3 : 0;
+  var ready = (touchingBolete === m);                    /* 主角正碰着它 */
+  var x = m.x + shake, y = m.y;
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s*squash);
+  /* 粗菌柄（牛肝菌的标志：胖胖的柄） */
+  ctx.fillStyle = '#eed9a8'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-9, 1); ctx.quadraticCurveTo(-11, -12, -6, -18);
+  ctx.lineTo(6, -18); ctx.quadraticCurveTo(11, -12, 9, 1);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 柄上的网纹 */
+  ctx.strokeStyle = 'rgba(138,90,43,.55)'; ctx.lineWidth = 1.2;
+  doodleLine(-5, -4, 4, -6, m.id+8, 1.2);
+  doodleLine(-4, -10, 5, -12, m.id+9, 1.2);
+  /* 菌盖下黄褐色的孔面 */
+  ctx.fillStyle = '#c9a227'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.ellipse(0, -19, 16, 4.5, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  /* 棕色菌盖 */
+  ctx.fillStyle = m.cap;
+  ctx.beginPath();
+  ctx.moveTo(-18, -19);
+  ctx.quadraticCurveTo(0, -38, 18, -19);
+  ctx.quadraticCurveTo(0, -14, -18, -19);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,240,200,.35)';
+  doodleCircle(-6, -27, 4, m.id+4); ctx.fill();
+  ctx.restore();
+  if(ready && !spraying){
+    /* 待踩提示：跳动的下箭头 + 光圈 */
+    var bounce = Math.abs(Math.sin(t*5))*5;
+    ctx.strokeStyle = '#b5892e'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(x, y-2, 24*s, 7*s, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#b5892e'; ctx.font = '700 15px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('👇 点一下踩我！', x, y - 52*s - bounce);
+    ctx.textAlign = 'left';
+  }
+  if(pop < 1){
+    ctx.fillStyle = '#e3a008'; ctx.font = '13px sans-serif';
+    ctx.fillText('✦', x+14, y-34);
+  }
+}
+/* 毒蝇伞的形状：白茎 + 鲜红伞盖 + 白点（以原点为脚底中心，约 38px 高） */
+function agaricShape(seed){
+  ctx.fillStyle = '#fff6e2'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-6, 0); ctx.quadraticCurveTo(-7, -14, -4, -19);
+  ctx.lineTo(4, -19); ctx.quadraticCurveTo(7, -14, 6, 0);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 菌环 */
+  ctx.lineWidth = 1.6;
+  doodleLine(-5, -11, 5, -11, seed+2, 1.6);
+  /* 鲜红伞盖 */
+  ctx.fillStyle = '#e33224'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-18, -17);
+  ctx.quadraticCurveTo(0, -38, 18, -17);
+  ctx.quadraticCurveTo(0, -10, -18, -17);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 白点（毒蝇伞的标志） */
+  ctx.fillStyle = '#fff6e8';
+  doodleCircle(-8, -25, 3.2, seed); ctx.fill();
+  doodleCircle(2, -29, 2.6, seed+3); ctx.fill();
+  doodleCircle(9, -22, 2.8, seed+5); ctx.fill();
+  doodleCircle(-1, -20, 2, seed+7); ctx.fill();
+}
+function drawFlyAgaric(m, t){
+  var pop = Math.min(1, (performance.now()-m.born)/260);
+  var s = m.s * (0.4 + 0.6*pop);
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(Math.sin(t*2 + m.id)*0.06); ctx.scale(s, s);
+  agaricShape(m.id*3+1);
+  ctx.restore();
+  /* 危险的小闪光 */
+  ctx.fillStyle = '#e33224'; ctx.font = '13px sans-serif';
+  ctx.globalAlpha = .45 + .5*(.5 + .5*Math.sin(t*4 + m.id));
+  ctx.fillText('✦', m.x + 13, m.y - 36 + Math.sin(t*3)*2);
+  ctx.fillText('✦', m.x - 20, m.y - 26 + Math.cos(t*2.6)*2);
+  ctx.globalAlpha = 1;
+  /* 主角靠近时提醒 */
+  if(player && Math.abs(player.x - m.x) < 110 && Math.abs(player.y - m.y) < 60){
+    ctx.fillStyle = '#c0392b'; ctx.font = '700 14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('⚠️ 毒蝇伞，别碰！', m.x, m.y - 52);
+    ctx.textAlign = 'left';
+  }
+}
+function drawMushroom(m, t){
+  if(m.kind === 'bolete'){ drawBolete(m, t); return; }
+  if(m.kind === 'flyagaric'){ drawFlyAgaric(m, t); return; }
+  var bob = Math.sin(t*2.4 + m.id*1.7)*1.6;
+  var pop = Math.min(1, (performance.now()-m.born)/260);
+  var s = m.s * (0.4 + 0.6*pop);
+  var x = m.x, y = m.y + (m.onBranch ? 0 : bob*0.3);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  /* 茎 */
+  ctx.fillStyle = '#fff6e2'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-6, 0); ctx.quadraticCurveTo(-7, -14, -4, -19);
+  ctx.lineTo(4, -19); ctx.quadraticCurveTo(7, -14, 6, 0);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 伞 */
+  ctx.fillStyle = m.cap;
+  ctx.beginPath();
+  ctx.moveTo(-17, -17);
+  ctx.quadraticCurveTo(0, -36 + bob, 17, -17);
+  ctx.quadraticCurveTo(0, -10, -17, -17);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff6e8';
+  doodleCircle(-7, -24 + bob*.5, 3, m.id); ctx.fill();
+  doodleCircle(6, -21 + bob*.5, 2.4, m.id+3); ctx.fill();
+  ctx.restore();
+  /* 新长出的小星星 */
+  if(pop < 1){
+    ctx.fillStyle = '#e3a008'; ctx.font = '13px sans-serif';
+    ctx.fillText('✦', x+12, y-30);
+  }
+}
+function drawActor(a, t){
+  var d = a.def;
+  var h = d.h, x = a.x, feetY = a.y;
+  if(a.stompT > 0) feetY += Math.sin((.35 - a.stompT)/.35 * Math.PI) * 8; /* 踩牛肝菌时脚往下压 */
+  var walking = Math.abs(a.vx) > 4 && a.onGround;
+  var legSwing = walking ? Math.sin(a.walkPh)*9 : 0;
+  var climbSwing = a.climbing ? Math.sin(t*7)*7 : 0;
+  var headY = feetY - h + 13;
+  ctx.save();
+  ctx.translate(x, 0);
+  ctx.scale(a.face, 1);
+  /* 影子 */
+  ctx.fillStyle = 'rgba(51,50,44,.14)';
+  ctx.beginPath(); ctx.ellipse(0, GROUND+7, 20*(h/96), 5, 0, 0, Math.PI*2); ctx.fill();
+  /* 毒蝇伞幻觉：主角整个人倒过来（头朝下、脚朝上）；蹲下时整个人压扁 */
+  if(a === player && a.halluT > 0){
+    var flipC = feetY - h/2;
+    ctx.translate(0, flipC*2); ctx.scale(1, -1);
+  }
+  if(a.squatT > 0){
+    ctx.translate(0, feetY); ctx.scale(1.14, .58); ctx.translate(0, -feetY);
+  }
+  ctx.strokeStyle = '#33322c'; ctx.lineCap = 'round';
+  /* 腿 */
+  ctx.lineWidth = 4.5;
+  if(a.climbing){
+    doodleLine(0, feetY-h+52*(h/96), -10, feetY-16+climbSwing, a.key.length*3, 4.5);
+    doodleLine(0, feetY-h+52*(h/96), 10, feetY-16-climbSwing, a.key.length*5, 4.5);
+  } else if(!a.onGround){
+    doodleLine(0, feetY-h+52*(h/96), -11, feetY-8, 3, 4.5);
+    doodleLine(0, feetY-h+52*(h/96), 12, feetY-14, 5, 4.5);
+  } else {
+    doodleLine(0, feetY-h+52*(h/96), legSwing, feetY, 3, 4.5);
+    doodleLine(0, feetY-h+52*(h/96), -legSwing, feetY, 5, 4.5);
+  }
+  /* 身体 */
+  var bodyTop = feetY - h + 26, bodyBot = feetY - h + 54*(h/96) + (h<80?8:0);
+  if(d.style === 'dress'){
+    ctx.fillStyle = d.shirt; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, bodyTop);
+    ctx.lineTo(-15*(h/88), bodyBot+16);
+    ctx.lineTo(15*(h/88), bodyBot+16);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else {
+    ctx.fillStyle = d.shirt; ctx.lineWidth = 3;
+    var bw = h<80 ? 12 : 14;
+    ctx.beginPath();
+    ctx.moveTo(-bw, bodyTop); ctx.lineTo(bw, bodyTop); ctx.lineTo(bw, bodyBot); ctx.lineTo(-bw, bodyBot);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    if(d.style === 'kid'){
+      ctx.fillStyle = '#ffd23e'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 1.2;
+      var sx=0, sy=(bodyTop+bodyBot)/2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy-6); ctx.lineTo(sx+1.8, sy-1.8); ctx.lineTo(sx+6, sy-1.4); ctx.lineTo(sx+2.6, sy+1.6);
+      ctx.lineTo(sx+3.6, sy+6); ctx.lineTo(sx, sy+3.4); ctx.lineTo(sx-3.6, sy+6); ctx.lineTo(sx-2.6, sy+1.6);
+      ctx.lineTo(sx-6, sy-1.4); ctx.lineTo(sx-1.8, sy-1.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
+  /* 背包（玩家画在身后侧，AI 也有小包） */
+  ctx.fillStyle = '#e3a008'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.5;
+  ctx.fillRect(-19, bodyTop+2, 10, 20*(h/96));
+  ctx.strokeRect(-19, bodyTop+2, 10, 20*(h/96));
+  /* 手臂 / 捂脸 */
+  ctx.lineWidth = 4.5; ctx.strokeStyle = '#33322c';
+  var cover = a.faceCoverT > 0;
+  if(cover){
+    /* 两只手捂住脸 + 惊叹 */
+    doodleLine(-11, bodyTop+8, -5, headY+6, 7, 4.5);
+    doodleLine(11, bodyTop+8, 5, headY+6, 9, 4.5);
+    ctx.fillStyle = d.skin; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
+    doodleCircle(-6, headY+7, 5, 21); ctx.fill();
+    doodleCircle(6, headY+7, 5, 23); ctx.fill();
+    ctx.fillStyle = '#d9534a'; ctx.font = '900 22px sans-serif';
+    ctx.fillText('!', 14, headY - 12 + Math.sin(t*10)*1.5);
+  } else if(a.climbing){
+    doodleLine(-11, bodyTop+8, -13, bodyTop-8-climbSwing, 7, 4.5);
+    doodleLine(11, bodyTop+8, 13, bodyTop-8+climbSwing, 9, 4.5);
+  } else {
+    var armSwing = walking ? Math.sin(a.walkPh)*-6 : 0;
+    doodleLine(-11, bodyTop+8, -15, bodyTop+22+armSwing, 7, 4.5);
+    doodleLine(11, bodyTop+8, 15, bodyTop+22-armSwing, 9, 4.5);
+  }
+  /* 头 */
+  ctx.fillStyle = d.skin; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 3;
+  doodleCircle(0, headY, 13*(h<80?0.95:1), a.key.length*11); ctx.fill();
+  /* 头发/帽子 */
+  if(d.style === 'cap'){
+    ctx.fillStyle = '#4a7fb5';
+    ctx.beginPath(); ctx.arc(0, headY-3, 13.5, Math.PI, Math.PI*2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillRect(-2, headY-6, 20, 4); ctx.strokeRect(-2, headY-6, 20, 4);
+  } else if(d.style === 'dress'){
+    ctx.fillStyle = d.hair;
+    ctx.beginPath(); ctx.arc(0, headY-4, 13.5, Math.PI*.95, Math.PI*2.05); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = d.hair; ctx.lineWidth = 6;
+    doodleLine(-12, headY-2, -16, headY+16, 15, 6);
+    ctx.strokeStyle = '#33322c';
+  } else {
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(0, headY-4, 13, Math.PI, Math.PI*2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    /* 黑框眼镜 */
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 2.2;
+    doodleCircle(-5.5, headY+1, 5, 31); doodleCircle(6, headY+1, 5, 33);
+    doodleLine(-.5, headY+1, .5, headY+1, 35, 2.2);
+    ctx.strokeStyle = '#33322c';
+  }
+  /* 眼睛嘴巴（没捂脸时） */
+  if(!cover){
+    ctx.fillStyle = '#33322c';
+    ctx.beginPath(); ctx.arc(-4.5, headY, 1.7, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, headY, 1.7, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, headY+4.5, 4.4, .25*Math.PI, .8*Math.PI); ctx.stroke();
+    /* 腮红 */
+    ctx.fillStyle = 'rgba(217,83,74,.4)';
+    ctx.beginPath(); ctx.arc(-9, headY+5, 2.8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(9.5, headY+5, 2.8, 0, Math.PI*2); ctx.fill();
+  } else {
+    /* 捂脸时从指缝笑：弯月嘴 */
+    ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, headY+11, 3.6, .2*Math.PI, .85*Math.PI); ctx.stroke();
+  }
+  ctx.restore();
+
+  /* 名字 + 玩家标记 */
+  ctx.font = '700 13px "Comic Sans MS","PingFang SC",sans-serif';
+  ctx.textAlign = 'center';
+  var label = d.name + (a === player ? '（你）' : ' · AI伙伴') + ' 🎒×' + (a.pack || 0);
+  var tw = ctx.measureText(label).width + 14;
+  ctx.fillStyle = a === player ? '#ffd23e' : 'rgba(255,253,244,.9)';
+  ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2;
+  var ly = headY - 34;
+  ctx.fillRect(x - tw/2, ly - 14, tw, 20); ctx.strokeRect(x - tw/2, ly - 14, tw, 20);
+  ctx.fillStyle = '#33322c';
+  ctx.fillText(label, x, ly + 1);
+  ctx.textAlign = 'left';
+
+  /* 对话气泡 */
+  if(a.bubbleT > 0 && a.bubble){
+    ctx.font = '700 14px "Comic Sans MS","PingFang SC",sans-serif';
+    var bw2 = ctx.measureText(a.bubble).width + 18;
+    var bx = x - bw2/2, by = ly - 46;
+    ctx.fillStyle = '#fffdf4'; ctx.strokeStyle = '#33322c'; ctx.lineWidth = 2.2;
+    ctx.fillRect(bx, by, bw2, 24); ctx.strokeRect(bx, by, bw2, 24);
+    ctx.beginPath(); ctx.moveTo(x-5, by+24); ctx.lineTo(x+5, by+24); ctx.lineTo(x, by+32); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#33322c'; ctx.fillText(a.bubble, bx + 9, by + 17);
+  }
+}
+function drawParticlesWorld(){
+  for(var i=0;i<particles.length;i++){
+    var p = particles[i];
+    ctx.globalAlpha = Math.max(0, p.life*1.6);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+  }
+  /* 牛肝菌的黄褐色孢子云 */
+  for(var j=0;j<sporeParticles.length;j++){
+    var sp = sporeParticles[j];
+    ctx.globalAlpha = Math.max(0, Math.min(1, sp.life));
+    ctx.fillStyle = sp.color;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+/* 幻觉里天上飘的巨大毒蝇伞（并不存在） */
+function drawPhantoms(t){
+  for(var i=0;i<3;i++){
+    var px = camX + 170 + i*330 + Math.sin(t*.5 + i*2.1)*36;
+    var py = 120 + Math.sin(t*.9 + i*1.7)*26;
+    ctx.save();
+    ctx.globalAlpha = .20 + .09*Math.sin(t*1.6 + i*2);
+    ctx.translate(px, py); ctx.rotate(Math.sin(t*.7 + i)*0.1); ctx.scale(3.4, 3.4);
+    agaricShape(7 + i*13);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+/* 幻觉覆盖层（屏幕空间）：彩虹罩 + 不存在的彩色暴雨 + 光球 + 刺眼强光 */
+function drawHalluFX(t){
+  var i;
+  var hue0 = Math.floor((t*60) % 360);
+  var grad = ctx.createLinearGradient(0, 0, VIEW_W, VIEW_H);
+  grad.addColorStop(0, 'hsla(' + hue0 + ',90%,60%,.10)');
+  grad.addColorStop(.5, 'hsla(' + ((hue0+120)%360) + ',90%,60%,.06)');
+  grad.addColorStop(1, 'hsla(' + ((hue0+240)%360) + ',90%,60%,.10)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  /* 不存在的大暴雨：彩色雨丝斜着砸下来（其实天气好好的） */
+  ctx.lineWidth = 2;
+  for(i=0;i<42;i++){
+    var rx = (rnd(i*17+3)*(VIEW_W+120) + t*60) % (VIEW_W+120) - 60;
+    var ry = (rnd(i*29+7)*VIEW_H + t*(430 + rnd(i*7)*260)) % (VIEW_H+40) - 20;
+    ctx.strokeStyle = 'hsla(' + ((i*43 + Math.floor(t*90)) % 360) + ',85%,55%,.5)';
+    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 7, ry + 22); ctx.stroke();
+  }
+  /* 飘浮的彩色光球 */
+  for(i=0;i<halluOrbs.length;i++){
+    var o = halluOrbs[i];
+    ctx.fillStyle = 'hsla(' + o.hue + ',95%,62%,.30)';
+    ctx.beginPath(); ctx.arc(o.x, o.y, o.r*1.9, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'hsla(' + o.hue + ',95%,68%,.75)';
+    ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(o.x - o.r*.3, o.y - o.r*.3, o.r*.28, 0, Math.PI*2); ctx.fill();
+  }
+  /* 时不时一道刺眼的强光 */
+  var fl = Math.pow(Math.max(0, Math.sin(t*1.35 + 1.2)), 18);
+  if(fl > .02){ ctx.fillStyle = 'rgba(255,255,230,' + (fl*.55) + ')'; ctx.fillRect(0,0,VIEW_W,VIEW_H); }
+}
+function drawWeatherFX(w, t){
+  var i;
+  if(w.id === 'drizzle' || w.id === 'storm'){
+    ctx.strokeStyle = 'rgba(74,127,181,.55)'; ctx.lineWidth = w.id==='storm'?2.4:1.6;
+    ctx.beginPath();
+    for(i=0;i<rainDrops.length;i++){
+      var r = rainDrops[i];
+      ctx.moveTo(r.x, r.y); ctx.lineTo(r.x + r.slant*.03, r.y + (w.id==='storm'?20:13));
+    }
+    ctx.stroke();
+    if(w.id === 'storm'){
+      ctx.fillStyle = 'rgba(90,100,110,.06)'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+    }
+  }
+  if(w.id === 'firerain'){
+    for(i=0;i<embers.length;i++){
+      var e = embers[i];
+      ctx.fillStyle = ['#e8862e','#d9534a','#e3a008'][i%3];
+      ctx.beginPath(); ctx.arc(e.x, e.y, 3 + (i%3), 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(232,134,46,.35)';
+      ctx.beginPath(); ctx.arc(e.x, e.y, 6.5, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  if(w.id === 'overcast' || w.id === 'cloudy'){
+    ctx.fillStyle = 'rgba(120,118,105,.05)'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  }
+}
+function drawBolt(b){
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, b.life*3.4);
+  ctx.strokeStyle = '#e3a008'; ctx.lineWidth = 6; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  var x = b.x, y = 30;
+  ctx.moveTo(x, y);
+  var segs = [[16,90],[-14,180],[18,270],[-8,360],[6,430]];
+  for(var i=0;i<segs.length;i++){ x += segs[i][0]*(rnd(b.seed+i)-.3); y = segs[i][1]; ctx.lineTo(x, y); }
+  ctx.lineTo(b.x + 4, GROUND);
+  ctx.stroke();
+  ctx.strokeStyle = '#fff3b0'; ctx.lineWidth = 2.4; ctx.stroke();
+  ctx.restore();
+}
+
+/* ================= 顶部条带：最近的蘑菇屋 / 火山在哪边 ================= */
+var stripHouseEl = document.getElementById('stripHouse'), stripHouseLblEl = document.getElementById('stripHouseLbl');
+var stripVolcEl = document.getElementById('stripVolc'), stripVolcLblEl = document.getElementById('stripVolcLbl');
+function updateStrip(){
+  if(!player) return;
+  var hp = 50 + (houseCenterNear(player.x) - player.x) / PERIOD * 100;
+  var vp = 50 + (volcanoCenterNear(player.x) - player.x) / PERIOD * 100;
+  if(stripHouseEl){ stripHouseEl.style.left = hp + '%'; stripHouseLblEl.style.left = hp + '%'; }
+  if(stripVolcEl){ stripVolcEl.style.left = vp + '%'; stripVolcLblEl.style.left = vp + '%'; }
+}
+
+/* ================= HUD / 流程 ================= */
+var packFillEl = document.getElementById('packFill');
+var packBarEl = document.getElementById('packBar');
+var packBarTextEl = document.getElementById('packBarText');
+function updateHUD(){
+  /* 顶部收集条只数主角自己背包里的蘑菇 */
+  var mine = player ? (player.pack || 0) : 0;
+  document.getElementById('packNum').textContent = mine;
+  var pct = Math.round(mine / CAPACITY * 100);
+  if(packFillEl) packFillEl.style.width = pct + '%';
+  if(packBarTextEl) packBarTextEl.textContent = pct + '%';
+  if(packBarEl) packBarEl.setAttribute('aria-valuenow', mine);
+  var w = curWx(), n = nextWx();
+  document.getElementById('wxNow').textContent = w.icon + ' ' + w.name;
+  document.getElementById('wxNext').textContent = '下一个：' + n.icon + n.name;
+}
+function resetGame(){
+  won = false; paused = false; elapsed = 0; spawnTimer = 0;   /* 角色重建时各自的背包自动归零 */
+  document.getElementById('pauseOverlay').classList.add('hidden');
+  document.getElementById('pauseBtn').textContent = '⏸ 暂停';
+  mushrooms = []; particles = []; sporeParticles = []; bolts = []; rainDrops = []; embers = []; halluOrbs = [];
+  touchingBolete = null;
+  playerKey = selectedChar;
+  actors = [
+    makeActor('dad', 240), makeActor('mom', 320), makeActor('kid', 170)
+  ];
+  for(var i=0;i<actors.length;i++) actors[i].ai = actors[i].key !== playerKey;
+  player = actorByKey(playerKey);
+  player.x = 300;
+  shuffleWx(); wxTimer = 0;
+  setWeather(false);
+  for(var s=0;s<6;s++) spawnMushroom();
+  spawnMushroom(560, 'bolete');   /* 开局保证有一只牛肝菌在不远处，可以试着踩 */
+  spawnMushroom(1150, 'bolete');
+  spawnMushroom(880, 'flyagaric');   /* 开局保证有一只毒蝇伞在不远处，碰到就会产生幻觉 */
+  updateHUD();
+  document.getElementById('clock').textContent = '0:00';
+}
+function winGame(){
+  won = true;
+  sndWin();
+  for(var i=0;i<5;i++){
+    (function(k){ setTimeout(function(){ if(player) burst(player.x + (Math.random()-.5)*120, GROUND - 60 - Math.random()*60, ['#d9534a','#e3a008','#5d9b6a','#4a7fb5'][k%4]); }, k*140); })(i);
+  }
+  var others = actors.filter(function(a){return a!==player;}).map(function(a){return a.def.name + '的背包里有 ' + (a.pack||0) + ' 个';}).join('、');
+  document.getElementById('winStats').innerHTML =
+    '你操控的' + player.def.name + '把自己的背包装得满满的！<br>' +
+    '⏱️ 用时 ' + fmtTime(elapsed) + ' · ' + others + '，也帮了大忙 ❤️<br>' +
+    '今晚可以煮一大锅蘑菇汤啦！🍲';
+  setTimeout(function(){ document.getElementById('winOverlay').classList.remove('hidden'); }, 650);
+}
+
+/* ================= 界面事件 ================= */
+var charCards = document.querySelectorAll('.char-card');
+charCards.forEach(function(card){
+  card.addEventListener('click', function(){
+    sndClick();
+    charCards.forEach(function(c){ c.classList.remove('sel'); });
+    card.classList.add('sel');
+    selectedChar = card.getAttribute('data-char');
+  });
+});
+document.getElementById('startBtn').addEventListener('click', function(){
+  sndStart();
+  document.getElementById('startOverlay').classList.add('hidden');
+  started = true;
+  startTime = performance.now();
+  resetGame();
+  toast('出发！采满 ' + CAPACITY + ' 个蘑菇就赢啦 🍄', 2800);
+});
+document.getElementById('againBtn').addEventListener('click', function(){
+  sndStart();
+  document.getElementById('winOverlay').classList.add('hidden');
+  won = false; started = true;
+  startTime = performance.now();
+  resetGame();
+  toast('新的一天，蘑菇又长出来啦！', 2400);
+});
+document.getElementById('restartBtn').addEventListener('click', function(){
+  sndClick();
+  document.getElementById('winOverlay').classList.add('hidden');
+  document.getElementById('startOverlay').classList.remove('hidden');
+  started = false; won = false;
+  resetGame();
+});
+/* ================= 暂停 ================= */
+function setPaused(v){
+  if(v && (!started || won)) return;   /* 还没开始或已经获胜时不暂停 */
+  paused = v;
+  document.getElementById('pauseOverlay').classList.toggle('hidden', !paused);
+  document.getElementById('pauseBtn').textContent = paused ? '▶ 继续' : '⏸ 暂停';
+  if(paused) stopRainAmbience();       /* 暂停时雨声也停 */
+  else updateRainAmbience();
+}
+function togglePause(){ setPaused(!paused); }
+document.getElementById('pauseBtn').addEventListener('click', function(){ sndClick(); togglePause(); });
+document.getElementById('resumeBtn').addEventListener('click', function(){ sndClick(); setPaused(false); });
+/* 切到别的标签页/App 时自动暂停，免得回来发现背包被闪电清了 */
+document.addEventListener('visibilitychange', function(){ if(document.hidden) setPaused(true); });
+
+document.getElementById('soundBtn').addEventListener('click', function(){
+  soundOn = !soundOn;
+  this.textContent = soundOn ? '🔊 声音开' : '🔇 声音关';
+  if(soundOn){ sndPick(); updateRainAmbience(); }
+  else stopRainAmbience();
+});
+
+/* 初始画面（选角背景） */
+playerKey = 'dad';
+actors = [ makeActor('dad', 240), makeActor('mom', 320), makeActor('kid', 170) ];
+player = actorByKey('dad');
+shuffleWx();
+for(var s0=0;s0<5;s0++) spawnMushroom();
+spawnMushroom(560, 'bolete');
+spawnMushroom(880, 'flyagaric');
+updateHUD();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
