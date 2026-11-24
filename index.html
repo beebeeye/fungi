@@ -655,6 +655,57 @@
       @media (prefers-color-scheme: dark) { .gate-error.is-network { background: #3a2f14; color: #f0d48a; } }
       .gate-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 
+      /* ---------- Photo cropper ---------- */
+      .crop-overlay {
+        position: fixed; inset: 0; z-index: 90; padding: 16px;
+        background: rgba(18, 30, 20, 0.62);
+        display: flex; align-items: center; justify-content: center;
+        overflow-y: auto;
+      }
+      .crop-card {
+        background: var(--surface); border: 2px solid var(--line); border-radius: 24px;
+        box-shadow: var(--shadow); width: 100%; max-width: 680px; padding: 24px;
+      }
+      .crop-card h2 { font-size: 1.55rem; font-weight: 800; }
+      .crop-help { color: var(--ink-soft); margin: 8px 0 0; font-weight: 600; }
+      .crop-ratio-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 14px; }
+      .crop-ratio-btn {
+        font-family: "Baloo 2", sans-serif; font-weight: 700; font-size: 0.98rem;
+        border: 2.5px solid var(--line); background: var(--bg); color: var(--ink-soft);
+        border-radius: 999px; padding: 8px 18px; cursor: pointer; min-height: 44px;
+      }
+      .crop-ratio-btn[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+      @media (prefers-color-scheme: dark) { .crop-ratio-btn[aria-pressed="true"] { color: #12211a; background: #8fcea5; border-color: #8fcea5; } }
+      .crop-stage {
+        position: relative; margin: 0 auto; max-width: 100%;
+        border-radius: 14px; overflow: hidden; background: #16241a;
+        touch-action: none; user-select: none; -webkit-user-select: none;
+      }
+      .crop-stage img { display: block; width: 100%; height: 100%; pointer-events: none; }
+      .crop-box {
+        position: absolute; border: 3px solid #fff;
+        box-shadow: 0 0 0 9999px rgba(10, 20, 12, 0.55);
+        cursor: move; touch-action: none; box-sizing: border-box;
+      }
+      .crop-handle {
+        position: absolute; width: 30px; height: 30px; border-radius: 50%;
+        background: var(--green); border: 3px solid #fff;
+        box-shadow: 0 2px 6px rgba(10, 20, 12, 0.45);
+        touch-action: none; z-index: 2;
+      }
+      @media (prefers-color-scheme: dark) { .crop-handle { background: #8fcea5; } }
+      .crop-handle[data-handle="nw"] { left: -15px; top: -15px; cursor: nwse-resize; }
+      .crop-handle[data-handle="ne"] { right: -15px; top: -15px; cursor: nesw-resize; }
+      .crop-handle[data-handle="sw"] { left: -15px; bottom: -15px; cursor: nesw-resize; }
+      .crop-handle[data-handle="se"] { right: -15px; bottom: -15px; cursor: nwse-resize; }
+      .crop-error {
+        margin: 14px 0 0; background: #fdecec; color: #7f1218;
+        border-radius: 14px; padding: 12px 16px; font-weight: 800; font-size: 0.98rem;
+      }
+      @media (prefers-color-scheme: dark) { .crop-error { background: #3d1f22; color: #ffb4b8; } }
+      .crop-loading { color: var(--ink-soft); font-weight: 700; text-align: center; margin: 0; padding: 30px 10px; }
+      .crop-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+
       /* ---------- Family mode: add + delete journals ---------- */
       .family-bar {
         margin-top: 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
@@ -1249,6 +1300,35 @@
       </div>
     </div>
 
+    <!-- Photo cropper: opened from the Crop button on a photo in the
+         diary form. The crop box starts locked to the journal card
+         cover shape (4:3); Free lets it be any shape. -->
+    <div class="crop-overlay" id="crop-overlay" hidden>
+      <div class="crop-card" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+        <h2 id="crop-title">Crop this photo</h2>
+        <p class="crop-help">Drag the box to move it, and drag a green corner dot to make it bigger or smaller. Only the part inside the box is kept.</p>
+        <div class="crop-ratio-row" role="group" aria-label="Crop shape">
+          <button type="button" class="crop-ratio-btn" id="crop-ratio-locked" aria-pressed="true">Card cover (4:3)</button>
+          <button type="button" class="crop-ratio-btn" id="crop-ratio-free" aria-pressed="false">Free</button>
+        </div>
+        <p class="crop-loading" id="crop-loading">Loading this photo…</p>
+        <div class="crop-stage" id="crop-stage" hidden>
+          <img id="crop-img" alt="The photo being cropped" draggable="false" />
+          <div class="crop-box" id="crop-box">
+            <span class="crop-handle" data-handle="nw" aria-hidden="true"></span>
+            <span class="crop-handle" data-handle="ne" aria-hidden="true"></span>
+            <span class="crop-handle" data-handle="sw" aria-hidden="true"></span>
+            <span class="crop-handle" data-handle="se" aria-hidden="true"></span>
+          </div>
+        </div>
+        <p class="crop-error" id="crop-error" role="alert" hidden></p>
+        <div class="crop-actions">
+          <button type="button" class="btn btn-primary" id="crop-apply">Apply crop</button>
+          <button type="button" class="btn btn-ghost" id="crop-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ======================= WRITE DIARY VIEW ======================= -->
     <div id="view-write" hidden>
       <div class="wrap">
@@ -1311,7 +1391,7 @@
                 </button>
                 <p class="upload-count" id="diary-upload-count" role="status">No photos picked yet — 0 of 6</p>
               </div>
-              <p class="field-hint">The <strong>first photo becomes the cover</strong> — it is the one shown on the journal card and on the map — and all of them appear in the entry&rsquo;s photo gallery. Tap &ldquo;Make cover&rdquo; under any photo below to move it to the front, or &ldquo;Remove&rdquo; to take it out. Uploaded photos win over the photo link and the picture below. Big photos are shrunk a little first, so they upload fast.</p>
+              <p class="field-hint">The <strong>first photo becomes the cover</strong> — it is the one shown on the journal card and on the map — and all of them appear in the entry&rsquo;s photo gallery. Tap &ldquo;Make cover&rdquo; under any photo below to move it to the front, &ldquo;Crop&rdquo; to trim it so it fits the card nicely, or &ldquo;Remove&rdquo; to take it out. Uploaded photos win over the photo link and the picture below. Big photos are shrunk a little first, so they upload fast.</p>
               <div class="photo-previews" id="diary-photo-previews" hidden></div>
               <p class="upload-status" id="diary-upload-status" role="status" hidden></p>
             </div>
@@ -2862,9 +2942,10 @@
               html += '<div class="photo-preview">';
               if (i === 0) html += '<span class="pv-cover-badge">Cover photo</span>';
               html += '<img src="' + escapeHtml(url) + '" alt="Photo ' + (i + 1) + ' for this entry: ' + escapeHtml(label) + '" />';
-              html += '<span class="pv-name">' + (i + 1) + ". " + escapeHtml(label) + '</span>';
+              html += '<span class="pv-name">' + (i + 1) + ". " + escapeHtml(label) + (item.cropped ? " (cropped)" : "") + '</span>';
               html += '<div class="pv-actions">';
               if (i !== 0) html += '<button type="button" class="pv-btn" data-pv-cover="' + i + '">Make cover</button>';
+              html += '<button type="button" class="pv-btn" data-pv-crop="' + i + '">Crop</button>';
               html += '<button type="button" class="pv-btn pv-remove" data-pv-remove="' + i + '">Remove</button>';
               html += '</div></div>';
             });
@@ -2878,6 +2959,12 @@
               var target = ev.target;
               var coverBtn = (target && target.closest) ? target.closest("[data-pv-cover]") : null;
               var removeBtn = (target && target.closest) ? target.closest("[data-pv-remove]") : null;
+              var cropBtn = (target && target.closest) ? target.closest("[data-pv-crop]") : null;
+              if (cropBtn) {
+                var pi = parseInt(cropBtn.getAttribute("data-pv-crop"), 10);
+                if (pi >= 0 && pi < photoItems.length) openCropper(pi);
+                return;
+              }
               if (coverBtn) {
                 var ci = parseInt(coverBtn.getAttribute("data-pv-cover"), 10);
                 if (ci > 0 && ci < photoItems.length) {
@@ -2895,6 +2982,261 @@
                   setUploadStatus(photoItems.length ? photoItems.length + (photoItems.length === 1 ? " photo" : " photos") + " in this entry — the first one is the cover." : "");
                 }
               }
+            });
+          }
+
+          /* ---------- Photo cropper ----------
+             The Crop button on each preview opens a modal with the
+             photo big, a draggable crop box and corner handles that
+             resize it (Pointer Events, so fingers work too). The box
+             starts locked to 4:3 — the shape the journal card cover
+             shows — and a Free option unlocks the shape. Apply draws
+             the chosen area to a canvas at full resolution and swaps
+             the list item for the cropped file, so cropping happens
+             before the normal shrink-and-upload step on save and the
+             cropped version is what lands in Storage. A saved photo
+             (a { url } item while editing) is fetched as a blob
+             first, so the canvas can read it; once cropped it becomes
+             a { file } item and uploads as a new photo on save, with
+             the entry's photo list updated to the new URL. Cancel
+             changes nothing. */
+          var COVER_RATIO = 4 / 3;
+          var cropOverlayEl = document.getElementById("crop-overlay");
+          var cropStageEl = document.getElementById("crop-stage");
+          var cropImgEl = document.getElementById("crop-img");
+          var cropBoxEl = document.getElementById("crop-box");
+          var cropLoadingEl = document.getElementById("crop-loading");
+          var cropErrorEl = document.getElementById("crop-error");
+          var cropLockedBtn = document.getElementById("crop-ratio-locked");
+          var cropFreeBtn = document.getElementById("crop-ratio-free");
+          var cropIndex = -1;
+          var cropLocked = true;
+          var cropBox = { x: 0, y: 0, w: 0, h: 0 };
+          var cropObjectUrl = null;
+          var cropSourceName = "photo";
+
+          function cropShowError(text) {
+            if (!cropErrorEl) return;
+            if (text) { cropErrorEl.textContent = text; cropErrorEl.hidden = false; }
+            else { cropErrorEl.textContent = ""; cropErrorEl.hidden = true; }
+          }
+          function setCropLocked(locked) {
+            cropLocked = locked;
+            if (cropLockedBtn) cropLockedBtn.setAttribute("aria-pressed", locked ? "true" : "false");
+            if (cropFreeBtn) cropFreeBtn.setAttribute("aria-pressed", locked ? "false" : "true");
+            if (locked && cropStageEl && !cropStageEl.hidden) {
+              /* Re-shape the current box to the cover ratio, keeping
+                 its centre and as much of its size as fits. */
+              var sw = cropStageEl.clientWidth, sh = cropStageEl.clientHeight;
+              var cx = cropBox.x + cropBox.w / 2, cy = cropBox.y + cropBox.h / 2;
+              var w = cropBox.w, h = w / COVER_RATIO;
+              if (h > sh) { h = sh; w = h * COVER_RATIO; }
+              if (w > sw) { w = sw; h = w / COVER_RATIO; }
+              cropBox.w = w; cropBox.h = h;
+              cropBox.x = Math.min(Math.max(cx - w / 2, 0), sw - w);
+              cropBox.y = Math.min(Math.max(cy - h / 2, 0), sh - h);
+              paintCropBox();
+            }
+          }
+          function paintCropBox() {
+            if (!cropBoxEl) return;
+            cropBoxEl.style.left = cropBox.x + "px";
+            cropBoxEl.style.top = cropBox.y + "px";
+            cropBoxEl.style.width = cropBox.w + "px";
+            cropBoxEl.style.height = cropBox.h + "px";
+          }
+          function closeCropper() {
+            if (cropOverlayEl) cropOverlayEl.hidden = true;
+            if (cropObjectUrl) { URL.revokeObjectURL(cropObjectUrl); cropObjectUrl = null; }
+            cropIndex = -1;
+            cropDrag = null;
+          }
+          function openCropper(index) {
+            var item = photoItems[index];
+            if (!item || !cropOverlayEl) return;
+            cropIndex = index;
+            cropShowError("");
+            setCropLocked(true);
+            if (cropLoadingEl) cropLoadingEl.hidden = false;
+            if (cropStageEl) cropStageEl.hidden = true;
+            cropOverlayEl.hidden = false;
+            cropSourceName = item.file ? item.file.name : "saved-photo";
+            /* Load the photo as a blob-backed object URL: files use
+               the file itself; saved photos are fetched, so the
+               canvas stays readable even cross-origin. If the fetch
+               fails, fall back to loading the URL directly with CORS
+               requested. */
+            var blobPromise = item.file
+              ? Promise.resolve(item.file)
+              : fetch(item.url).then(function (res) {
+                  if (!res.ok) throw new Error("fetch " + res.status);
+                  return res.blob();
+                });
+            blobPromise.then(function (blob) {
+              if (cropIndex !== index) return; /* closed meanwhile */
+              cropObjectUrl = URL.createObjectURL(blob);
+              loadCropImage(cropObjectUrl, false);
+            }).catch(function () {
+              if (cropIndex !== index) return;
+              if (item.url) loadCropImage(item.url, true);
+              else {
+                if (cropLoadingEl) cropLoadingEl.hidden = true;
+                cropShowError("This photo couldn't be loaded for cropping. You can still keep it as it is — tap Cancel.");
+              }
+            });
+          }
+          function loadCropImage(src, useCors) {
+            var img = new Image();
+            if (useCors) img.crossOrigin = "anonymous";
+            img.onload = function () {
+              if (cropIndex === -1) return;
+              cropImgEl.src = src;
+              /* Size the stage to the photo, fitting the card width
+                 and at most 62% of the window height. */
+              var maxW = cropOverlayEl.querySelector(".crop-card").clientWidth - 48;
+              var maxH = Math.round(window.innerHeight * 0.62);
+              var scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+              if (!(scale > 0)) scale = 1;
+              var dw = Math.max(1, Math.round(img.naturalWidth * scale));
+              var dh = Math.max(1, Math.round(img.naturalHeight * scale));
+              cropStageEl.style.width = dw + "px";
+              cropStageEl.style.height = dh + "px";
+              /* Start with the biggest centred 4:3 box that covers
+                 most of the photo. */
+              var w = dw * 0.92, h = w / COVER_RATIO;
+              if (h > dh * 0.92) { h = dh * 0.92; w = h * COVER_RATIO; }
+              cropBox = { x: (dw - w) / 2, y: (dh - h) / 2, w: w, h: h };
+              if (cropLoadingEl) cropLoadingEl.hidden = true;
+              cropStageEl.hidden = false;
+              paintCropBox();
+            };
+            img.onerror = function () {
+              if (cropIndex === -1) return;
+              if (cropLoadingEl) cropLoadingEl.hidden = true;
+              cropShowError("This photo couldn't be loaded for cropping. You can still keep it as it is — tap Cancel.");
+            };
+            img.src = src;
+          }
+
+          /* Drag the box to move it; drag a corner dot to resize.
+             One pointer handler with capture covers mouse and touch. */
+          var cropDrag = null;
+          if (cropBoxEl) {
+            cropBoxEl.addEventListener("pointerdown", function (ev) {
+              ev.preventDefault();
+              var handleEl = (ev.target && ev.target.closest) ? ev.target.closest("[data-handle]") : null;
+              cropDrag = {
+                mode: handleEl ? handleEl.getAttribute("data-handle") : "move",
+                startX: ev.clientX, startY: ev.clientY,
+                box: { x: cropBox.x, y: cropBox.y, w: cropBox.w, h: cropBox.h }
+              };
+              if (cropBoxEl.setPointerCapture) {
+                try { cropBoxEl.setPointerCapture(ev.pointerId); } catch (e) {}
+              }
+            });
+            cropBoxEl.addEventListener("pointermove", function (ev) {
+              if (!cropDrag) return;
+              var sw = cropStageEl.clientWidth, sh = cropStageEl.clientHeight;
+              var dx = ev.clientX - cropDrag.startX, dy = ev.clientY - cropDrag.startY;
+              var b = cropDrag.box, min = 44;
+              if (cropDrag.mode === "move") {
+                cropBox.x = Math.min(Math.max(b.x + dx, 0), sw - b.w);
+                cropBox.y = Math.min(Math.max(b.y + dy, 0), sh - b.h);
+                cropBox.w = b.w; cropBox.h = b.h;
+              } else {
+                var mode = cropDrag.mode;
+                var west = mode.indexOf("w") !== -1, north = mode.indexOf("n") !== -1;
+                /* The corner opposite the one being dragged stays put. */
+                var ax = west ? b.x + b.w : b.x;
+                var ay = north ? b.y + b.h : b.y;
+                var px = Math.min(Math.max((west ? b.x : b.x + b.w) + dx, 0), sw);
+                var py = Math.min(Math.max((north ? b.y : b.y + b.h) + dy, 0), sh);
+                var w = Math.abs(px - ax), h = Math.abs(py - ay);
+                if (cropLocked) {
+                  h = w / COVER_RATIO;
+                  var maxH = north ? ay : sh - ay;
+                  if (h > maxH) { h = maxH; w = h * COVER_RATIO; }
+                  if (w < min) { w = min; h = w / COVER_RATIO; }
+                  if (h < min) { h = min; w = h * COVER_RATIO; }
+                } else {
+                  if (w < min) w = min;
+                  if (h < min) h = min;
+                }
+                cropBox.w = w; cropBox.h = h;
+                cropBox.x = west ? ax - w : ax;
+                cropBox.y = north ? ay - h : ay;
+                /* Final safety clamp inside the stage. */
+                cropBox.x = Math.min(Math.max(cropBox.x, 0), sw - cropBox.w);
+                cropBox.y = Math.min(Math.max(cropBox.y, 0), sh - cropBox.h);
+              }
+              paintCropBox();
+            });
+            var endCropDrag = function () { cropDrag = null; };
+            cropBoxEl.addEventListener("pointerup", endCropDrag);
+            cropBoxEl.addEventListener("pointercancel", endCropDrag);
+          }
+          if (cropLockedBtn) cropLockedBtn.addEventListener("click", function () { setCropLocked(true); });
+          if (cropFreeBtn) cropFreeBtn.addEventListener("click", function () { setCropLocked(false); });
+          var cropCancelBtn = document.getElementById("crop-cancel");
+          if (cropCancelBtn) cropCancelBtn.addEventListener("click", closeCropper);
+          if (cropOverlayEl) {
+            cropOverlayEl.addEventListener("click", function (ev) { if (ev.target === cropOverlayEl) closeCropper(); });
+          }
+          var cropApplyBtn = document.getElementById("crop-apply");
+          if (cropApplyBtn) {
+            cropApplyBtn.addEventListener("click", function () {
+              if (cropIndex < 0 || cropIndex >= photoItems.length || !cropImgEl.src) return;
+              var full = new Image();
+              full.onload = function () {
+                try {
+                  var sw = cropStageEl.clientWidth, sh = cropStageEl.clientHeight;
+                  var scaleX = full.naturalWidth / sw, scaleY = full.naturalHeight / sh;
+                  var sx = Math.max(0, Math.round(cropBox.x * scaleX));
+                  var sy = Math.max(0, Math.round(cropBox.y * scaleY));
+                  var cw = Math.min(full.naturalWidth - sx, Math.round(cropBox.w * scaleX));
+                  var ch = Math.min(full.naturalHeight - sy, Math.round(cropBox.h * scaleY));
+                  if (cw < 1 || ch < 1) throw new Error("empty crop");
+                  var canvas = document.createElement("canvas");
+                  canvas.width = cw; canvas.height = ch;
+                  var ctx = canvas.getContext("2d");
+                  ctx.fillStyle = "#ffffff";
+                  ctx.fillRect(0, 0, cw, ch);
+                  ctx.drawImage(full, sx, sy, cw, ch, 0, 0, cw, ch);
+                  var finish = function (blob) {
+                    if (!blob) {
+                      cropShowError("Sorry — this photo couldn't be cropped here. Tap Cancel to keep it as it is.");
+                      return;
+                    }
+                    var base = cropSourceName.replace(/\.[a-z0-9]+$/i, "") || "photo";
+                    var croppedFile = new File([blob], base + "-cropped.jpg", { type: "image/jpeg", lastModified: Date.now() });
+                    var doneIndex = cropIndex;
+                    photoItems[cropIndex] = { file: croppedFile, url: null, cropped: true };
+                    closeCropper();
+                    renderPhotoPreviews();
+                    setUploadStatus("Photo " + (doneIndex + 1) + " cropped — the cropped version is the one that will be uploaded when you save.");
+                  };
+                  if (canvas.toBlob) canvas.toBlob(function (blob) { finish(blob); }, "image/jpeg", 0.92);
+                  else {
+                    var dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+                    var parts = dataUrl.split(",");
+                    var byteString = atob(parts[1]);
+                    var ab = new ArrayBuffer(byteString.length);
+                    var ia = new Uint8Array(ab);
+                    for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+                    finish(new Blob([ab], { type: "image/jpeg" }));
+                  }
+                } catch (e) {
+                  cropShowError("Sorry — this photo couldn't be cropped here. Tap Cancel to keep it as it is.");
+                }
+              };
+              full.onerror = function () {
+                cropShowError("Sorry — this photo couldn't be cropped here. Tap Cancel to keep it as it is.");
+              };
+              /* The display image's src is the blob URL (or the CORS-
+                 clean remote URL on the fallback path), so this load
+                 draws from the same readable source. */
+              if (/^https?:/i.test(cropImgEl.src)) full.crossOrigin = "anonymous";
+              full.src = cropImgEl.src;
             });
           }
 
